@@ -17,6 +17,7 @@ Application::~Application() {
 
     // Cleanup Vulkan
     vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroyDevice(logicalDevice, nullptr);
     vkDestroyInstance(instance, nullptr);
 
     // Cleanup GLFW
@@ -34,12 +35,12 @@ bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
     std::vector<VkExtensionProperties> availableExtensions(extensionsCount);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionsCount, availableExtensions.data());
 
-    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+    std::set<std::string> requiredDeviceExtensions(deviceExtensions.begin(), deviceExtensions.end());
     for (const auto& extension : availableExtensions) {
-        requiredExtensions.erase(extension.extensionName);
+        requiredDeviceExtensions.erase(extension.extensionName);
     }
 
-    return requiredExtensions.empty();
+    return requiredDeviceExtensions.empty();
 }
 
 bool Application::checkValidationLayerSupport() {
@@ -79,13 +80,13 @@ void Application::createInstance() {
     applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0 , 0);
     applicationInfo.apiVersion = VK_API_VERSION_1_2;
 
-    // Grab the needed Vulkan extensions
-    auto extensions = getRequiredExtensions();
+    // Grab the needed Vulkan extensions. This also initializes the list of required extensions
+    requiredExtensions = getRequiredExtensions();
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceCreateInfo.pApplicationInfo = &applicationInfo;
-    instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    instanceCreateInfo.ppEnabledExtensionNames = extensions.data();
+    instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
+    instanceCreateInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
     // Enable validation layers and debug messenger if needed
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
@@ -107,21 +108,38 @@ void Application::createInstance() {
 }
 
 void Application::createLogicalDevice() {
+    // Setup our Command Queue info
+    const float priorities[] = { 1.0f };
+    VkDeviceQueueCreateInfo queueInfo = {};
+    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueInfo.queueCount = 1; // TODO Figure out if we need to make this dynamic
+    queueInfo.queueFamilyIndex = queueIndices.graphicsFamilyIndex;
+    queueInfo.pQueuePriorities = priorities;
+
+    VkPhysicalDeviceFeatures physicalDeviceFeatures{}; // TODO Specify features
+
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceInfo.queueCreateInfoCount = 1; // We only use one queue for now
+    deviceInfo.pQueueCreateInfos = &queueInfo;
+    deviceInfo.ppEnabledExtensionNames = requiredExtensions.data();
+    deviceInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
-    //uint32_t                           queueCreateInfoCount;
-    //const VkDeviceQueueCreateInfo*     pQueueCreateInfos;
-    //uint32_t                           enabledLayerCount;
-    //const char* const*                 ppEnabledLayerNames;
-    //uint32_t                           enabledExtensionCount;
-    //const char* const*                 ppEnabledExtensionNames;
-    //const VkPhysicalDeviceFeatures*    pEnabledFeatures;
+    if (enableValidationLayers) {
+        deviceInfo.enabledLayerCount = validationLayers.size();
+        deviceInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+        deviceInfo.enabledLayerCount = 0;
+    }
 
-    //if (vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &logicalDevice) != VK_SUCCESS) {
-    //    std::cout << "Unable to create logical device!" << std::endl;
-    //    exit(EXIT_FAILURE);
-    //}
+    if (vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &logicalDevice) != VK_SUCCESS) {
+        std::cout << "Unable to create logical device!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Grab the device queue handle for the graphics queue after logical device creation
+    // queueIndex = 0 because we are only going to use one graphics queue
+    vkGetDeviceQueue(logicalDevice, queueIndices.graphicsFamilyIndex, 0, &graphicsQueue);
 }
 
 void Application::createSurface() {
@@ -139,18 +157,20 @@ void Application::getDeviceQueueIndices() {
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueProperties.data());
     for (int i = 0; i < queueProperties.size(); ++i) {
         if (queueProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            std::cout << "Found graphics queue index" << std::endl;
-            queueIndices.graphicsFamily = i;
+            queueIndices.graphicsFamilyIndex = i;
+        }
+        if (queueProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            queueIndices.computeFamilyIndex = i;
         }
     }
 }
 
 std::vector<const char *> Application::getRequiredExtensions() const {
     uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    const char** glfwRequiredExtensions;
+    glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    std::vector<const char*> extensions(glfwRequiredExtensions, glfwRequiredExtensions + glfwExtensionCount);
     for (const char* extension : extensions) {
         std::cout << extension << std::endl;
     }
@@ -170,13 +190,6 @@ void Application::initVulkan() {
 
     createLogicalDevice();
     createSurface();
-
-    const float priorities[] = { 1.0f };
-    VkDeviceQueueCreateInfo queueInfo = {};
-    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueInfo.queueCount = 1; // TODO Figure out if we need to make this dynamic
-    queueInfo.queueFamilyIndex = queueIndices.graphicsFamily;
-    queueInfo.pQueuePriorities = priorities;
 }
 
 void Application::initWindow() {
@@ -235,8 +248,6 @@ VkPhysicalDevice Application::pickPhysicalDevice() {
         if (isDeviceSuitable(device)) {
             std::cout << "Using discrete GPU: " << properties.deviceName << std::endl;
             return device;
-        }
-        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
         }
     }
 

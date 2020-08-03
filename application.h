@@ -1,7 +1,3 @@
-//
-// Created by tim on 7/13/20.
-//
-
 #pragma once
 
 #include <array>
@@ -99,7 +95,10 @@ private:
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice logicalDevice;
+    VkQueue graphicsQueue;
     VkSurfaceKHR surface;
+
+    std::vector<const char*> requiredExtensions;
 
     const std::array<const char*, 1> validationLayers = {
         "VK_LAYER_KHRONOS_validation",
@@ -110,7 +109,8 @@ private:
     };
 
     struct QueueFamilyIndices {
-        uint32_t graphicsFamily;
+        uint32_t graphicsFamilyIndex;
+        uint32_t computeFamilyIndex;
     };
 
     QueueFamilyIndices queueIndices;
