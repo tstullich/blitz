@@ -102,6 +102,7 @@ private:
     VkPhysicalDevice physicalDevice;
     VkDevice logicalDevice;
     VkQueue graphicsQueue;
+    VkQueue presentQueue;
     VkSurfaceKHR surface;
 
     std::vector<const char*> requiredExtensions;
@@ -117,6 +118,7 @@ private:
     struct QueueFamilyIndices {
         uint32_t graphicsFamilyIndex;
         uint32_t computeFamilyIndex;
+        uint32_t presentFamilyIndex;
     };
 
     QueueFamilyIndices queueIndices;

@@ -108,20 +108,25 @@ void Application::createInstance() {
 }
 
 void Application::createLogicalDevice() {
-    // Setup our Command Queue info
-    const float priorities[] = { 1.0f };
-    VkDeviceQueueCreateInfo queueInfo = {};
-    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueInfo.queueCount = 1; // TODO Figure out if we need to make this dynamic
-    queueInfo.queueFamilyIndex = queueIndices.graphicsFamilyIndex;
-    queueInfo.pQueuePriorities = priorities;
+    // Setup our Command Queues
+    std::set<uint32_t> uniqueQueueIndices = {queueIndices.graphicsFamilyIndex, queueIndices.presentFamilyIndex};
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    const float priority = 1.0f;
+    for (uint32_t queueIndex : uniqueQueueIndices) {
+        VkDeviceQueueCreateInfo queueInfo = {};
+        queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueInfo.queueCount = 1;
+        queueInfo.queueFamilyIndex = queueIndex;
+        queueInfo.pQueuePriorities = &priority;
+        queueCreateInfos.push_back(queueInfo);
+    }
 
     VkPhysicalDeviceFeatures physicalDeviceFeatures{}; // TODO Specify features
 
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceInfo.queueCreateInfoCount = 1; // We only use one queue for now
-    deviceInfo.pQueueCreateInfos = &queueInfo;
+    deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
     deviceInfo.ppEnabledExtensionNames = requiredExtensions.data();
     deviceInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
@@ -137,11 +142,13 @@ void Application::createLogicalDevice() {
         exit(EXIT_FAILURE);
     }
 
-    // Grab the device queue handle for the graphics queue after logical device creation
-    // queueIndex = 0 because we are only going to use one graphics queue
+    // Grab the device queue handles for the graphics and present queues after logical device creation
+    // queueIndex = 0 because we are only going to use one graphics queue per queue family
     vkGetDeviceQueue(logicalDevice, queueIndices.graphicsFamilyIndex, 0, &graphicsQueue);
+    vkGetDeviceQueue(logicalDevice, queueIndices.presentFamilyIndex, 0, &presentQueue);
 }
 
+// For cross-platform compatibility we let GLFW take care of the surface creation
 void Application::createSurface() {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         std::cout << "Unable to create window surface!" << std::endl;
@@ -159,6 +166,15 @@ void Application::getDeviceQueueIndices() {
         if (queueProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             queueIndices.graphicsFamilyIndex = i;
         }
+
+        // Check if a queue supports presentation
+        // If this returns false, make sure to enable DRI3 if using X11
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+        if (presentSupport) {
+            queueIndices.presentFamilyIndex = i;
+        }
+
         if (queueProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
             queueIndices.computeFamilyIndex = i;
         }
@@ -184,12 +200,10 @@ std::vector<const char *> Application::getRequiredExtensions() const {
 void Application::initVulkan() {
     createInstance();
     setupDebugMessenger();
-    physicalDevice = pickPhysicalDevice();
-
-    getDeviceQueueIndices();
-
-    createLogicalDevice();
     createSurface();
+    physicalDevice = pickPhysicalDevice();
+    getDeviceQueueIndices();
+    createLogicalDevice();
 }
 
 void Application::initWindow() {
