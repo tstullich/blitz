@@ -11,6 +11,10 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
+
 class Application {
 public:
     Application();
@@ -66,6 +70,8 @@ private:
     bool checkDeviceExtensions(VkPhysicalDevice device);
 
     bool checkValidationLayerSupport();
+
+    void createDeviceQueues();
 
     void createInstance();
 
