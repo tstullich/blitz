@@ -7,6 +7,7 @@
 Application::Application() {
     initWindow();
     initVulkan();
+    initImGui();
 }
 
 Application::~Application() {
@@ -15,7 +16,13 @@ Application::~Application() {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
+    // Cleanup ImGui
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     // Cleanup Vulkan
+    vkDestroySwapchainKHR(logicalDevice, swapchain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyDevice(logicalDevice, nullptr);
     vkDestroyInstance(instance, nullptr);
@@ -109,7 +116,7 @@ void Application::createInstance() {
 
 void Application::createLogicalDevice() {
     // Setup our Command Queues
-    std::set<uint32_t> uniqueQueueIndices = {queueIndices.graphicsFamilyIndex, queueIndices.presentFamilyIndex};
+    std::set<uint32_t> uniqueQueueIndices = { queueIndices.graphicsFamilyIndex, queueIndices.presentFamilyIndex };
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     const float priority = 1.0f;
     for (uint32_t queueIndex : uniqueQueueIndices) {
@@ -121,13 +128,16 @@ void Application::createLogicalDevice() {
         queueCreateInfos.push_back(queueInfo);
     }
 
-    VkPhysicalDeviceFeatures physicalDeviceFeatures{}; // TODO Specify features
-
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
     deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
-    deviceInfo.ppEnabledExtensionNames = requiredExtensions.data();
+
+    deviceInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+    VkPhysicalDeviceFeatures physicalDeviceFeatures = {}; // TODO Specify features
     deviceInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
     if (enableValidationLayers) {
@@ -146,6 +156,55 @@ void Application::createLogicalDevice() {
     // queueIndex = 0 because we are only going to use one graphics queue per queue family
     vkGetDeviceQueue(logicalDevice, queueIndices.graphicsFamilyIndex, 0, &graphicsQueue);
     vkGetDeviceQueue(logicalDevice, queueIndices.presentFamilyIndex, 0, &presentQueue);
+}
+
+void Application::createSwapchain() {
+    SwapchainConfiguration configuration = querySwapchainSupport(physicalDevice);
+
+    VkSurfaceFormatKHR surfaceFormat = pickSwapchainSurfaceFormat(configuration.surfaceFormats);
+    VkExtent2D extent = pickSwapchainExtent(configuration.capabilities);
+    VkPresentModeKHR presentMode = pickSwapchainPresentMode(configuration.presentModes);
+
+    uint32_t imageCount = configuration.capabilities.minImageCount + 1;
+    if (configuration.capabilities.maxImageCount > 0 && imageCount > configuration.capabilities.maxImageCount) {
+        // In case we are exceeding the maximum capacity for swap chain images we reset the value
+        imageCount = configuration.capabilities.maxImageCount;
+    }
+
+    VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
+    swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchainCreateInfo.surface = surface;
+    swapchainCreateInfo.minImageCount = imageCount;
+    swapchainCreateInfo.imageFormat = surfaceFormat.format;
+    swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
+    swapchainCreateInfo.imageExtent = extent;
+    swapchainCreateInfo.imageArrayLayers = 1;
+    swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // TODO Change this later to setup for compute
+
+    // Check if the graphics and present queues are the same and setup
+    // sharing of the swap chain accordingly
+    uint32_t indices[] = { queueIndices.graphicsFamilyIndex, queueIndices.presentFamilyIndex };
+    if (queueIndices.presentFamilyIndex == queueIndices.graphicsFamilyIndex) {
+        swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    } else {
+        swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchainCreateInfo.queueFamilyIndexCount = 2;
+        swapchainCreateInfo.pQueueFamilyIndices = indices;
+    }
+
+    swapchainCreateInfo.preTransform = configuration.capabilities.currentTransform;
+    swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchainCreateInfo.presentMode = presentMode;
+    swapchainCreateInfo.clipped = VK_TRUE;
+    swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+
+    if (vkCreateSwapchainKHR(logicalDevice, &swapchainCreateInfo, nullptr, &swapchain) != VK_SUCCESS) {
+        std::cout << "Unable to create Swap Chain!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    swapChainImageFormat = surfaceFormat.format;
+    swapchainExtent = extent;
 }
 
 // For cross-platform compatibility we let GLFW take care of the surface creation
@@ -197,6 +256,12 @@ std::vector<const char *> Application::getRequiredExtensions() const {
     return extensions;
 }
 
+void Application::initImGui() {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+}
+
 void Application::initVulkan() {
     createInstance();
     setupDebugMessenger();
@@ -204,6 +269,7 @@ void Application::initVulkan() {
     physicalDevice = pickPhysicalDevice();
     getDeviceQueueIndices();
     createLogicalDevice();
+    createSwapchain();
 }
 
 void Application::initWindow() {
@@ -230,7 +296,15 @@ bool Application::isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(device, &properties);
     bool extensionsSupported = checkDeviceExtensions(device);
-    return extensionsSupported && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+
+    // Check if Swap Chain support is adequate
+    bool swapChainAdequate = false;
+    if (extensionsSupported) {
+        SwapchainConfiguration swapchainConfig = querySwapchainSupport(device);
+        swapChainAdequate = !swapchainConfig.presentModes.empty() && !swapchainConfig.surfaceFormats.empty();
+    }
+
+    return swapChainAdequate && extensionsSupported && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 }
 
 // TODO Later add logic to check if compute capability is available
@@ -276,6 +350,71 @@ VkPhysicalDevice Application::pickPhysicalDevice() {
 
     std::cout << "Using fallback physical device: " << properties.deviceName << std::endl;
     return physicalDevices[0];
+}
+
+VkExtent2D Application::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities) {
+    if (surfaceCapabilities.currentExtent.width != UINT32_MAX) {
+        return surfaceCapabilities.currentExtent;
+    } else {
+        VkExtent2D actualExtent = { WINDOW_WIDTH, WINDOW_HEIGHT };
+        actualExtent.width = std::max(surfaceCapabilities.minImageExtent.width,
+                                      std::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
+        actualExtent.height = std::max(surfaceCapabilities.minImageExtent.height,
+                                       std::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
+        return actualExtent;
+    }
+}
+
+VkPresentModeKHR Application::pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes) {
+    // Look for triple-buffering present mode if available
+    for (VkPresentModeKHR availableMode : presentModes) {
+        if (availableMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            return availableMode;
+        }
+    }
+
+    // Use FIFO mode as our fallback, since it's the only guaranteed mode
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkSurfaceFormatKHR Application::pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats) {
+    for (VkSurfaceFormatKHR availableFormat : formats) {
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
+            availableFormat.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
+            return availableFormat;
+        }
+    }
+
+    // As a fallback choose the first format
+    // TODO Could establish a ranking and pick best one
+    return formats[0];
+}
+
+Application::SwapchainConfiguration Application::querySwapchainSupport(const VkPhysicalDevice &device) {
+    SwapchainConfiguration config = {};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &config.capabilities);
+
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+    if (formatCount > 0) {
+        config.surfaceFormats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device,
+                                             surface,
+                                             &formatCount,
+                                             config.surfaceFormats.data());
+    }
+
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+    if (presentModeCount > 0) {
+        config.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device,
+                                                  surface,
+                                                  &presentModeCount,
+                                                  config.presentModes.data());
+    }
+
+    return config;
 }
 
 void Application::run() {

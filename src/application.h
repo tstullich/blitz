@@ -24,6 +24,18 @@ public:
     void run();
 
 private:
+    struct QueueFamilyIndices {
+        uint32_t graphicsFamilyIndex;
+        uint32_t computeFamilyIndex;
+        uint32_t presentFamilyIndex;
+    };
+
+    struct SwapchainConfiguration {
+        VkSurfaceCapabilitiesKHR capabilities;
+        std::vector<VkSurfaceFormatKHR> surfaceFormats;
+        std::vector<VkPresentModeKHR> presentModes;
+    };
+
     static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                                  const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
         auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -71,17 +83,19 @@ private:
 
     bool checkValidationLayerSupport();
 
-    void createDeviceQueues();
-
     void createInstance();
 
     void createLogicalDevice();
+
+    void createSwapchain();
 
     void createSurface();
 
     void getDeviceQueueIndices();
 
     std::vector<const char*> getRequiredExtensions() const;
+
+    void initImGui();
 
     void initVulkan();
 
@@ -90,6 +104,14 @@ private:
     bool isDeviceSuitable(VkPhysicalDevice device);
 
     VkPhysicalDevice pickPhysicalDevice();
+
+    VkExtent2D pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities);
+
+    VkPresentModeKHR pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes);
+
+    VkSurfaceFormatKHR pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats);
+
+    SwapchainConfiguration querySwapchainSupport(const VkPhysicalDevice &physicalDevice);
 
     void setupDebugMessenger();
 
@@ -101,9 +123,15 @@ private:
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice logicalDevice;
+
     VkQueue graphicsQueue;
     VkQueue presentQueue;
+
     VkSurfaceKHR surface;
+
+    VkSwapchainKHR swapchain;
+    VkExtent2D swapchainExtent;
+    VkFormat swapChainImageFormat;
 
     std::vector<const char*> requiredExtensions;
 
@@ -113,12 +141,6 @@ private:
 
     const std::array<const char*, 1> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-
-    struct QueueFamilyIndices {
-        uint32_t graphicsFamilyIndex;
-        uint32_t computeFamilyIndex;
-        uint32_t presentFamilyIndex;
     };
 
     QueueFamilyIndices queueIndices;
