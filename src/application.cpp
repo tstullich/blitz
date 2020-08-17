@@ -18,8 +18,12 @@ Application::~Application() {
     ImGui::DestroyContext();
 
     // Cleanup Vulkan
-    vkDestroySemaphore(logicalDevice, imageAvailableSemaphore, nullptr);
-    vkDestroySemaphore(logicalDevice, renderFinishedSemaphore, nullptr);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+    }
+
     vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 
     for (auto framebuffer : swapchainFramebuffers) {
@@ -467,22 +471,6 @@ void Application::createRenderPass() {
     }
 }
 
-void Application::createSemaphores() {
-    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    if (vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr,
-                          &imageAvailableSemaphore) != VK_SUCCESS) {
-        std::cout << "Unable to create semaphore!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    if (vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr,
-                          &renderFinishedSemaphore) != VK_SUCCESS) {
-        std::cout << "Unable to create semaphore!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-}
-
 VkShaderModule Application::createShaderModule(const std::vector<char> &shaderCode) {
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -561,14 +549,62 @@ void Application::createSwapchain() {
     vkGetSwapchainImagesKHR(logicalDevice, swapchain, &swapchainCount, swapchainImages.data());
 }
 
+void Application::createSyncObjects() {
+    // Create our semaphores and fences for synchronizing the GPU and CPU
+    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    imagesInFlight.resize(swapchainImages.size(), VK_NULL_HANDLE);
+
+    // Create semaphores for the number of frames that can be submitted to the GPU at a time
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceCreateInfo = {};
+    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Set this flag to be initialized to be on
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        if (vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr,
+                              &imageAvailableSemaphores[i]) != VK_SUCCESS) {
+            std::cout << "Unable to create semaphore!" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr,
+                              &renderFinishedSemaphores[i]) != VK_SUCCESS) {
+            std::cout << "Unable to create semaphore!" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (vkCreateFence(logicalDevice, &fenceCreateInfo, nullptr,
+                          &inFlightFences[i]) != VK_SUCCESS) {
+            std::cout << "Unable to create fence!" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+
 void Application::drawFrame() {
+    // Sync for next frame. Fences also need to be manually reset unlike semaphores, which is done here
+    vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(logicalDevice, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(logicalDevice, swapchain, UINT64_MAX, imageAvailableSemaphores[currentFrame],
+                          VK_NULL_HANDLE, &imageIndex);
+
+    // Check if a previous frame is using this image (i.e. there is its fence to wait on)
+    if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+        vkWaitForFences(logicalDevice, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+    }
+
+    // Mark the image as now being in use by this frame
+    imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
@@ -576,11 +612,14 @@ void Application::drawFrame() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
-    VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+    // Reset the in-flight fences so we do not get blocked waiting on in-flight images
+    vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
+
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
         std::cout << "Failed to submit draw command buffer!" << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -601,6 +640,9 @@ void Application::drawFrame() {
     // Simple way for syncing queue submissions and GPU work
     // TODO: Improve this
     vkDeviceWaitIdle(logicalDevice);
+
+    // Advance the current frame to get the semaphore data for the next frame
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Application::getDeviceQueueIndices() {
@@ -664,7 +706,7 @@ void Application::initVulkan() {
     createFramebuffers();
     createCommandPool();
     createCommandBuffers();
-    createSemaphores();
+    createSyncObjects();
 }
 
 void Application::initWindow() {

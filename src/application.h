@@ -101,13 +101,13 @@ private:
 
     void createRenderPass();
 
-    void createSemaphores();
-
     VkShaderModule createShaderModule(const std::vector<char> &shaderCode);
 
     void createSurface();
 
     void createSwapchain();
+
+    void createSyncObjects();
 
     void drawFrame();
 
@@ -163,8 +163,12 @@ private:
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
 
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
+    uint32_t currentFrame = 0;
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+    std::vector<VkFence> imagesInFlight;
 
     std::vector<const char*> requiredExtensions;
 
