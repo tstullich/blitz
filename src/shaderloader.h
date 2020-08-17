@@ -12,6 +12,7 @@ public:
 
         if (!file.is_open()) {
             std::cout << "Unable to open file: " << filePath << std::endl;
+            std::cout << "Did you run compile.sh yet?" << std::endl;
             exit(EXIT_FAILURE);
         }
 
