@@ -637,10 +637,6 @@ void Application::drawFrame() {
     // Submit the present queue
     vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    // Simple way for syncing queue submissions and GPU work
-    // TODO: Improve this
-    vkDeviceWaitIdle(logicalDevice);
-
     // Advance the current frame to get the semaphore data for the next frame
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
