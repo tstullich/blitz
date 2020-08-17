@@ -22,6 +22,10 @@ Application::~Application() {
     ImGui::DestroyContext();
 
     // Cleanup Vulkan
+    for (auto imageView : swapchainImageViews) {
+        vkDestroyImageView(logicalDevice, imageView, nullptr);
+    }
+
     vkDestroySwapchainKHR(logicalDevice, swapchain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyDevice(logicalDevice, nullptr);
@@ -71,6 +75,31 @@ bool Application::checkValidationLayerSupport() {
         }
     }
     return true;
+}
+
+void Application::createImageViews() {
+    swapchainImageViews.resize(swapchainImages.size());
+    for (size_t i = 0; i < swapchainImages.size(); ++i) {
+        VkImageViewCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = swapchainImages[i];
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = swapchainImageFormat;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // We do not enable mip-mapping
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS) {
+            std::cout << "Unable to create image views!" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 void Application::createInstance() {
@@ -158,6 +187,14 @@ void Application::createLogicalDevice() {
     vkGetDeviceQueue(logicalDevice, queueIndices.presentFamilyIndex, 0, &presentQueue);
 }
 
+// For cross-platform compatibility we let GLFW take care of the surface creation
+void Application::createSurface() {
+    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+        std::cout << "Unable to create window surface!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 void Application::createSwapchain() {
     SwapchainConfiguration configuration = querySwapchainSupport(physicalDevice);
 
@@ -199,20 +236,18 @@ void Application::createSwapchain() {
     swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
 
     if (vkCreateSwapchainKHR(logicalDevice, &swapchainCreateInfo, nullptr, &swapchain) != VK_SUCCESS) {
-        std::cout << "Unable to create Swap Chain!" << std::endl;
+        std::cout << "Unable to create swap chain!" << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    swapChainImageFormat = surfaceFormat.format;
+    swapchainImageFormat = surfaceFormat.format;
     swapchainExtent = extent;
-}
 
-// For cross-platform compatibility we let GLFW take care of the surface creation
-void Application::createSurface() {
-    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
-        std::cout << "Unable to create window surface!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    // Store the handles to the swap chain images for later use
+    uint32_t swapchainCount;
+    vkGetSwapchainImagesKHR(logicalDevice, swapchain, &swapchainCount, nullptr);
+    swapchainImages.resize(swapchainCount);
+    vkGetSwapchainImagesKHR(logicalDevice, swapchain, &swapchainCount, swapchainImages.data());
 }
 
 void Application::getDeviceQueueIndices() {
@@ -221,7 +256,7 @@ void Application::getDeviceQueueIndices() {
 
     std::vector<VkQueueFamilyProperties> queueProperties(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueProperties.data());
-    for (int i = 0; i < queueProperties.size(); ++i) {
+    for (size_t i = 0; i < queueProperties.size(); ++i) {
         if (queueProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             queueIndices.graphicsFamilyIndex = i;
         }

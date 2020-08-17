@@ -83,13 +83,15 @@ private:
 
     bool checkValidationLayerSupport();
 
+    void createImageViews();
+
     void createInstance();
 
     void createLogicalDevice();
 
-    void createSwapchain();
-
     void createSurface();
+
+    void createSwapchain();
 
     void getDeviceQueueIndices();
 
@@ -130,8 +132,11 @@ private:
     VkSurfaceKHR surface;
 
     VkSwapchainKHR swapchain;
+    std::vector<VkImage> swapchainImages;
     VkExtent2D swapchainExtent;
-    VkFormat swapChainImageFormat;
+    VkFormat swapchainImageFormat;
+
+    std::vector<VkImageView> swapchainImageViews;
 
     std::vector<const char*> requiredExtensions;
 
