@@ -15,6 +15,8 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
 
+#include "shaderloader.h"
+
 class Application {
 public:
     Application();
@@ -83,21 +85,37 @@ private:
 
     bool checkValidationLayerSupport();
 
+    void createCommandBuffers();
+
+    void createCommandPool();
+
+    void createFramebuffers();
+
+    void createGraphicsPipeline();
+
     void createImageViews();
 
     void createInstance();
 
     void createLogicalDevice();
 
+    void createRenderPass();
+
+    void createSemaphores();
+
+    VkShaderModule createShaderModule(const std::vector<char> &shaderCode);
+
     void createSurface();
 
     void createSwapchain();
+
+    void drawFrame();
 
     void getDeviceQueueIndices();
 
     std::vector<const char*> getRequiredExtensions() const;
 
-    void initImGui();
+    void initUI();
 
     void initVulkan();
 
@@ -109,9 +127,9 @@ private:
 
     VkExtent2D pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities);
 
-    VkPresentModeKHR pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes);
+    static VkPresentModeKHR pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes);
 
-    VkSurfaceFormatKHR pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats);
+    static VkSurfaceFormatKHR pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats);
 
     SwapchainConfiguration querySwapchainSupport(const VkPhysicalDevice &physicalDevice);
 
@@ -133,10 +151,20 @@ private:
 
     VkSwapchainKHR swapchain;
     std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
     VkExtent2D swapchainExtent;
     VkFormat swapchainImageFormat;
+    std::vector<VkFramebuffer> swapchainFramebuffers;
 
-    std::vector<VkImageView> swapchainImageViews;
+    VkRenderPass renderPass;
+    VkPipeline graphicsPipeline;
+    VkPipelineLayout graphicsPipelineLayout;
+
+    VkCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
+
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
 
     std::vector<const char*> requiredExtensions;
 
