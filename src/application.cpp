@@ -75,8 +75,7 @@ VkCommandBuffer Application::beginSingleTimeCommands(VkCommandPool cmdPool) {
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        std::cout << "Could not create one-time command buffer!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Could not create one-time command buffer!");
     }
 
     return commandBuffer;
@@ -85,8 +84,7 @@ VkCommandBuffer Application::beginSingleTimeCommands(VkCommandPool cmdPool) {
 bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
     uint32_t extensionsCount = 0;
     if (vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionsCount, nullptr) != VK_SUCCESS) {
-        std::cout << "Unable to enumerate device extensions!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to enumerate device extensions!");
     }
 
     std::vector<VkExtensionProperties> availableExtensions(extensionsCount);
@@ -162,8 +160,7 @@ void Application::createCommandBuffers() {
     allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
     if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-        std::cout << "Failed to allocate command buffers!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Failed to allocate command buffers!");
     }
 
     for (size_t i = 0; i < commandBuffers.size(); ++i) {
@@ -171,8 +168,7 @@ void Application::createCommandBuffers() {
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
         if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
-            std::cout << "Failed to begin recording command buffers!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Failed to begin recording command buffers!");
         }
 
         VkRenderPassBeginInfo renderPassInfo = {};
@@ -194,8 +190,7 @@ void Application::createCommandBuffers() {
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-            std::cout << "Failed to record command buffers!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Failed to record command buffers!");
         }
     }
 }
@@ -206,8 +201,7 @@ void Application::createCommandPool() {
     createInfo.queueFamilyIndex = queueIndices.graphicsFamilyIndex;
 
     if (vkCreateCommandPool(logicalDevice, &createInfo, nullptr, &commandPool) != VK_SUCCESS) {
-        std::cout << "Unable to create command pool!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create command pool!");
     }
 }
 
@@ -223,8 +217,7 @@ void Application::createDescriptorPool() {
     createInfo.pPoolSizes = &poolSize;
 
     if (vkCreateDescriptorPool(logicalDevice, &createInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-        std::cout << "Unable to create descriptor pool!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create descriptor pool!");
     }
 }
 
@@ -245,8 +238,7 @@ void Application::createFramebuffers() {
 
         if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr,
                                 &swapchainFramebuffers[i]) != VK_SUCCESS) {
-            std::cout << "Unable to create framebuffer!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unable to create framebuffer!");
         }
     }
 }
@@ -358,8 +350,7 @@ void Application::createGraphicsPipeline() {
 
     if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, nullptr,
                                &graphicsPipelineLayout) != VK_SUCCESS) {
-        std::cout << "Unable to create graphics pipeline layout!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create graphics pipeline layout!");
     }
 
     // Create the info for our graphics pipeline. We'll add a programmable vertex and fragment shader stage
@@ -382,8 +373,7 @@ void Application::createGraphicsPipeline() {
 
     if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr,
                                   &graphicsPipeline) != VK_SUCCESS) {
-        std::cout << "Unable to create graphics pipeline!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create graphics pipeline!");
     }
 
     // Cleanup our shader modules after pipeline creation
@@ -411,16 +401,14 @@ void Application::createImageViews() {
 
         if (vkCreateImageView(logicalDevice, &createInfo, nullptr,
                               &swapchainImageViews[i]) != VK_SUCCESS) {
-            std::cout << "Unable to create image views!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unable to create image views!");
         }
     }
 }
 
 void Application::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
-        std::cout << "Unable to establish validation layer support!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to establish validation layer support!");
     }
 
     VkApplicationInfo applicationInfo;
@@ -453,8 +441,7 @@ void Application::createInstance() {
     }
 
     if (vkCreateInstance(&instanceCreateInfo, nullptr, &instance) != VK_SUCCESS) {
-        std::cout << "Unable to create a Vulkan instance!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create a Vulkan instance!");
     }
 }
 
@@ -492,8 +479,7 @@ void Application::createLogicalDevice() {
     }
 
     if (vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &logicalDevice) != VK_SUCCESS) {
-        std::cout << "Unable to create logical device!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create logical device!");
     }
 
     // Grab the device queue handles for the graphics and present queues after logical device creation
@@ -543,8 +529,7 @@ void Application::createRenderPass() {
     createInfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(logicalDevice, &createInfo, nullptr, &renderPass) != VK_SUCCESS) {
-        std::cout << "Could not create render pass!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Could not create render pass!");
     }
 }
 
@@ -556,8 +541,7 @@ VkShaderModule Application::createShaderModule(const std::vector<char> &shaderCo
 
     VkShaderModule shaderModule;
     if (vkCreateShaderModule(logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        std::cout << "Unable to create shader module!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create shader module!");
     }
 
     return shaderModule;
@@ -566,8 +550,7 @@ VkShaderModule Application::createShaderModule(const std::vector<char> &shaderCo
 // For cross-platform compatibility we let GLFW take care of the surface creation
 void Application::createSurface() {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
-        std::cout << "Unable to create window surface!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create window surface!");
     }
 }
 
@@ -612,8 +595,7 @@ void Application::createSwapchain() {
     swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
 
     if (vkCreateSwapchainKHR(logicalDevice, &swapchainCreateInfo, nullptr, &swapchain) != VK_SUCCESS) {
-        std::cout << "Unable to create swap chain!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create swap chain!");
     }
 
     swapchainImageFormat = surfaceFormat.format;
@@ -643,20 +625,17 @@ void Application::createSyncObjects() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         if (vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr,
                               &imageAvailableSemaphores[i]) != VK_SUCCESS) {
-            std::cout << "Unable to create semaphore!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unable to create semaphore!");
         }
 
         if (vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr,
                               &renderFinishedSemaphores[i]) != VK_SUCCESS) {
-            std::cout << "Unable to create semaphore!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unable to create semaphore!");
         }
 
         if (vkCreateFence(logicalDevice, &fenceCreateInfo, nullptr,
                           &inFlightFences[i]) != VK_SUCCESS) {
-            std::cout << "Unable to create fence!" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unable to create fence!");
         }
     }
 }
@@ -671,8 +650,7 @@ void Application::createUICommandBuffers() {
     commandBufferAllocateInfo.commandBufferCount = static_cast<uint32_t>(uiCommandBuffers.size());
 
     if (vkAllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, uiCommandBuffers.data()) != VK_SUCCESS) {
-        std::cout << "Unable to allocate UI command buffers!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to allocate UI command buffers!");
     }
 }
 
@@ -682,8 +660,7 @@ void Application::recordUICommands(uint32_t bufferIdx) {
     cmdBufferBegin.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     if (vkBeginCommandBuffer(uiCommandBuffers[bufferIdx], &cmdBufferBegin) != VK_SUCCESS) {
-        std::cout << "Unable to start recording UI command buffer!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to start recording UI command buffer!");
     }
 
     VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -705,8 +682,7 @@ void Application::recordUICommands(uint32_t bufferIdx) {
     vkCmdEndRenderPass(uiCommandBuffers[bufferIdx]);
 
     if (vkEndCommandBuffer(uiCommandBuffers[bufferIdx]) != VK_SUCCESS) {
-        std::cout << "Failed to record command buffers!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Failed to record command buffers!");
     }
 }
 
@@ -745,8 +721,7 @@ void Application::createUIDescriptorPool() {
     pool_info.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes));
     pool_info.pPoolSizes = pool_sizes;
     if (vkCreateDescriptorPool(logicalDevice, &pool_info, nullptr, &uiDescriptorPool) != VK_SUCCESS) {
-        std::cout << "Cannot allocate UI descriptor pool!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Cannot allocate UI descriptor pool!");
     }
 }
 
@@ -765,8 +740,7 @@ void Application::createUIFramebuffers() {
     for (uint32_t i = 0; i < swapchainImages.size(); ++i) {
         attachment[0] = swapchainImageViews[i];
         if (vkCreateFramebuffer(logicalDevice, &info, nullptr, &uiFramebuffers[i]) != VK_SUCCESS) {
-            std::cout << "Unable to create UI Framebuffers" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unable to create UI framebuffers!");
         }
     }
 }
@@ -816,8 +790,7 @@ void Application::createUIRenderPass() {
     renderPassInfo.pDependencies = &subpassDependency;
 
     if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &uiRenderPass) != VK_SUCCESS) {
-        std::cout << "Unable to create UI render pass!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create UI render pass!");
     }
 }
 
@@ -835,8 +808,7 @@ void Application::drawFrame() {
         recreateSwapchain();
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        std::cout << "Unable to acquire swap chain!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to acquire swap chain!");
     }
 
     // Check if a previous frame is using this image (i.e. there is its fence to wait on)
@@ -870,8 +842,7 @@ void Application::drawFrame() {
     vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
     if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-        std::cout << "Failed to submit draw command buffer!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Failed to submit draw command buffer!");
     }
 
     VkPresentInfoKHR presentInfo = {};
@@ -891,8 +862,7 @@ void Application::drawFrame() {
         framebufferResized = false;
         recreateSwapchain();
     } else if (result != VK_SUCCESS ) {
-        std::cout << "Unable to present the swap chain image!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to present the swap chain image!");
     }
 
     // Advance the current frame to get the semaphore data for the next frame
@@ -1030,8 +1000,7 @@ void Application::initVulkan() {
 
 void Application::initWindow() {
     if (!glfwInit()) {
-        std::cout << "Unable to initialize GLFW!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to initialize GLFW!");
     }
 
     // Do not load OpenGL and make window not resizable
@@ -1045,9 +1014,8 @@ void Application::initWindow() {
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
     if (!window) {
-        std::cout << "Unable to create window!" << std::endl;
         glfwTerminate();
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to create window!");
     }
 }
 
@@ -1075,16 +1043,14 @@ void Application::keyCallback(GLFWwindow *window, int key, int scancode, int act
 VkPhysicalDevice Application::pickPhysicalDevice() {
     uint32_t physicalDeviceCount = 0;
     if (vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
-        std::cout << "Unable to enumerate physical devices!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Unable to enumerate physical devices!");
     }
 
     std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
     vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.data());
 
     if (physicalDevices.empty()) {
-        std::cout << "No physical devices are available that support Vulkan!";
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("No physical devices are available that support Vulkan!");
     }
 
     for (const auto& device : physicalDevices) {
@@ -1102,8 +1068,7 @@ VkPhysicalDevice Application::pickPhysicalDevice() {
     vkGetPhysicalDeviceProperties(physicalDevices[0], &properties);
     // Need to check if this is at least a physical device with GPU capabilities
     if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
-        std::cout << "Did not find a physical GPU on this system!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Did not find a physical GPU on this system!");
     }
 
     std::cout << "Using fallback physical device: " << properties.deviceName << std::endl;
@@ -1226,7 +1191,6 @@ void Application::setupDebugMessenger() {
     PopulateDebugMessengerCreateInfo(createInfo);
 
     if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-        std::cout << "Failed to setup debug messenger!" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Failed to setup debug messenger!");
     }
 }
