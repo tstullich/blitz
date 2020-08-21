@@ -7,4 +7,4 @@ add_subdirectory(imgui)
 
 target_include_directories(renderer PUBLIC imgui)
 
-target_link_libraries(renderer glfw Vulkan::Vulkan)
+target_link_libraries(renderer glfw Vulkan::Vulkan glm::glm)

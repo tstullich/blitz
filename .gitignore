@@ -1,3 +1,4 @@
+*.ini
 *.spv
 .idea/
 cmake-build-debug/

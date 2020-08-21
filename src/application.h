@@ -69,6 +69,11 @@ private:
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+        auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+        app->framebufferResized = true;
+    }
+
     static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -81,13 +86,21 @@ private:
         createInfo.pfnUserCallback = debugCallback;
     }
 
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool cmdPool);
+
     bool checkDeviceExtensions(VkPhysicalDevice device);
 
     bool checkValidationLayerSupport();
 
+    void cleanupSwapchain();
+
+    void cleanupUIResources();
+
     void createCommandBuffers();
 
     void createCommandPool();
+
+    void createDescriptorPool();
 
     void createFramebuffers();
 
@@ -101,6 +114,16 @@ private:
 
     void createRenderPass();
 
+    void createUICommandBuffers();
+
+    void createUICommandPool(VkCommandPool *commandPool, VkCommandPoolCreateFlags flags);
+
+    void createUIDescriptorPool();
+
+    void createUIFramebuffers();
+
+    void createUIRenderPass();
+
     VkShaderModule createShaderModule(const std::vector<char> &shaderCode);
 
     void createSurface();
@@ -110,6 +133,10 @@ private:
     void createSyncObjects();
 
     void drawFrame();
+
+    static void drawUI();
+
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool);
 
     void getDeviceQueueIndices();
 
@@ -133,10 +160,14 @@ private:
 
     SwapchainConfiguration querySwapchainSupport(const VkPhysicalDevice &physicalDevice);
 
+    void recordUICommands(uint32_t bufferIdx);
+
+    void recreateSwapchain();
+
     void setupDebugMessenger();
 
-    const uint32_t WINDOW_WIDTH = 800;
-    const uint32_t WINDOW_HEIGHT = 600;
+    const uint32_t WINDOW_WIDTH = 1200;
+    const uint32_t WINDOW_HEIGHT = 900;
 
     GLFWwindow *window;
 
@@ -155,20 +186,31 @@ private:
     VkExtent2D swapchainExtent;
     VkFormat swapchainImageFormat;
     std::vector<VkFramebuffer> swapchainFramebuffers;
+    std::vector<VkFramebuffer> uiFramebuffers;
 
     VkRenderPass renderPass;
+    VkRenderPass uiRenderPass;
+
     VkPipeline graphicsPipeline;
     VkPipelineLayout graphicsPipelineLayout;
 
     VkCommandPool commandPool;
+    VkCommandPool uiCommandPool;
     std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkCommandBuffer> uiCommandBuffers;
 
+    uint32_t imageCount = 0;
     uint32_t currentFrame = 0;
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
+
+    VkDescriptorPool descriptorPool;
+    VkDescriptorPool uiDescriptorPool;
+
+    bool framebufferResized = false;
 
     std::vector<const char*> requiredExtensions;
 
