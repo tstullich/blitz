@@ -16,6 +16,7 @@
 #include "imgui/imgui_impl_vulkan.h"
 
 #include "shaderloader.h"
+#include "swapchain.h"
 
 class Application {
 public:
@@ -30,12 +31,6 @@ private:
         uint32_t graphicsFamilyIndex;
         uint32_t computeFamilyIndex;
         uint32_t presentFamilyIndex;
-    };
-
-    struct SwapchainConfiguration {
-        VkSurfaceCapabilitiesKHR capabilities;
-        std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        std::vector<VkPresentModeKHR> presentModes;
     };
 
     static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -102,11 +97,7 @@ private:
 
     void createDescriptorPool();
 
-    void createFramebuffers();
-
     void createGraphicsPipeline();
-
-    void createImageViews();
 
     void createInstance();
 
@@ -130,6 +121,8 @@ private:
 
     void createSwapchain();
 
+    Swapchain::SwapchainContext createSwapchainContext();
+
     void createSyncObjects();
 
     void drawFrame();
@@ -152,22 +145,14 @@ private:
 
     VkPhysicalDevice pickPhysicalDevice();
 
-    VkExtent2D pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities);
-
-    static VkPresentModeKHR pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes);
-
-    static VkSurfaceFormatKHR pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats);
-
-    SwapchainConfiguration querySwapchainSupport(const VkPhysicalDevice &physicalDevice);
-
     void recordUICommands(uint32_t bufferIdx);
 
     void recreateSwapchain();
 
     void setupDebugMessenger();
 
-    const uint32_t WINDOW_WIDTH = 1200;
-    const uint32_t WINDOW_HEIGHT = 900;
+    uint32_t windowWidth = 1200;
+    uint32_t windowHeight = 900;
 
     GLFWwindow *window;
 
@@ -180,12 +165,6 @@ private:
 
     VkSurfaceKHR surface;
 
-    VkSwapchainKHR swapchain;
-    std::vector<VkImage> swapchainImages;
-    std::vector<VkImageView> swapchainImageViews;
-    VkExtent2D swapchainExtent;
-    VkFormat swapchainImageFormat;
-    std::vector<VkFramebuffer> swapchainFramebuffers;
     std::vector<VkFramebuffer> uiFramebuffers;
 
     VkRenderPass renderPass;
@@ -199,7 +178,6 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkCommandBuffer> uiCommandBuffers;
 
-    uint32_t imageCount = 0;
     uint32_t currentFrame = 0;
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -209,6 +187,8 @@ private:
 
     VkDescriptorPool descriptorPool;
     VkDescriptorPool uiDescriptorPool;
+
+    Swapchain swapchain;
 
     bool framebufferResized = false;
 

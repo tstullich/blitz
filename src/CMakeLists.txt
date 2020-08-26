@@ -1,5 +1,5 @@
 SET(SRCS main.cpp
-        application.cpp shaderloader.h)
+        application.cpp shaderloader.h swapchain.cpp swapchain.h)
 
 add_executable(renderer ${SRCS})
 
