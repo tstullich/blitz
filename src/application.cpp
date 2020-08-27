@@ -12,20 +12,8 @@ Application::~Application() {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
-    // Cleanup DearImGui
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
-    vkDestroyDescriptorPool(logicalDevice, uiDescriptorPool, nullptr);
-    vkFreeCommandBuffers(logicalDevice, uiCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()),
-                         uiCommandBuffers.data());
-    vkDestroyCommandPool(logicalDevice, uiCommandPool, nullptr);
-    vkDestroyRenderPass(logicalDevice, uiRenderPass, nullptr);
-
-    for (auto framebuffer : uiFramebuffers) {
-        vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
-    }
+    //// Cleanup DearImGui
+    ui.cleanup();
 
     // Cleanup Vulkan
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
@@ -51,27 +39,6 @@ Application::~Application() {
     // Cleanup GLFW
     glfwDestroyWindow(window);
     glfwTerminate();
-}
-
-VkCommandBuffer Application::beginSingleTimeCommands(VkCommandPool cmdPool) {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = cmdPool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer = {};
-    vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Could not create one-time command buffer!");
-    }
-
-    return commandBuffer;
 }
 
 bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
@@ -124,15 +91,6 @@ void Application::cleanupSwapchain() {
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
     swapchain.cleanup();
-}
-
-void Application::cleanupUIResources() {
-    for (auto framebuffer : uiFramebuffers) {
-        vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
-    }
-
-    vkFreeCommandBuffers(logicalDevice, uiCommandPool,
-                         static_cast<uint32_t>(uiCommandBuffers.size()), uiCommandBuffers.data());
 }
 
 void Application::createCommandBuffers() {
@@ -542,160 +500,17 @@ void Application::createSyncObjects() {
     }
 }
 
-void Application::createUICommandBuffers() {
-    uiCommandBuffers.resize(swapchain.getImageViewsSize());
-
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.commandPool = uiCommandPool;
-    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferAllocateInfo.commandBufferCount = static_cast<uint32_t>(uiCommandBuffers.size());
-
-    if (vkAllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, uiCommandBuffers.data()) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to allocate UI command buffers!");
-    }
-}
-
-void Application::recordUICommands(uint32_t bufferIdx) {
-    VkCommandBufferBeginInfo cmdBufferBegin = {};
-    cmdBufferBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmdBufferBegin.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    if (vkBeginCommandBuffer(uiCommandBuffers[bufferIdx], &cmdBufferBegin) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to start recording UI command buffer!");
-    }
-
-    VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-    VkExtent2D swapchainExtent = swapchain.getExtent();
-    VkRenderPassBeginInfo renderPassBeginInfo = {};
-    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBeginInfo.renderPass = uiRenderPass;
-    renderPassBeginInfo.framebuffer = uiFramebuffers[bufferIdx];
-    renderPassBeginInfo.renderArea.extent.width = swapchainExtent.width;
-    renderPassBeginInfo.renderArea.extent.height = swapchainExtent.height;
-    renderPassBeginInfo.clearValueCount = 1;
-    renderPassBeginInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(uiCommandBuffers[bufferIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Grab and record the draw data for Dear Imgui
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), uiCommandBuffers[bufferIdx]);
-
-    // End and submit render pass
-    vkCmdEndRenderPass(uiCommandBuffers[bufferIdx]);
-
-    if (vkEndCommandBuffer(uiCommandBuffers[bufferIdx]) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to record command buffers!");
-    }
-}
-
-void Application::createUICommandPool(VkCommandPool *cmdPool, VkCommandPoolCreateFlags flags) {
-    VkCommandPoolCreateInfo commandPoolCreateInfo = {};
-    commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    commandPoolCreateInfo.queueFamilyIndex = queueIndices.graphicsFamilyIndex;
-    commandPoolCreateInfo.flags = flags;
-
-    if (vkCreateCommandPool(logicalDevice, &commandPoolCreateInfo, nullptr, cmdPool) != VK_SUCCESS) {
-        throw std::runtime_error("Could not create graphics command pool!");
-    }
-}
-
-// Copied this code from DearImgui's setup:
-// https://github.com/ocornut/imgui/blob/master/examples/example_glfw_vulkan/main.cpp
-void Application::createUIDescriptorPool() {
-    VkDescriptorPoolSize pool_sizes[] = {
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-    };
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-    pool_info.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes));
-    pool_info.pPoolSizes = pool_sizes;
-    if (vkCreateDescriptorPool(logicalDevice, &pool_info, nullptr, &uiDescriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("Cannot allocate UI descriptor pool!");
-    }
-}
-
-void Application::createUIFramebuffers() {
-    // Create some UI framebuffers. These will be used in the render pass for the UI
-    uiFramebuffers.resize(swapchain.getImagesSize());
-    VkExtent2D swapchainExtent = swapchain.getExtent();
-    VkImageView attachment[1];
-    VkFramebufferCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    info.renderPass = uiRenderPass;
-    info.attachmentCount = 1;
-    info.pAttachments = attachment;
-    info.width = swapchainExtent.width;
-    info.height = swapchainExtent.height;
-    info.layers = 1;
-    for (uint32_t i = 0; i < swapchain.getImagesSize(); ++i) {
-        attachment[0] = swapchain.getImageView(i);
-        if (vkCreateFramebuffer(logicalDevice, &info, nullptr, &uiFramebuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Unable to create UI framebuffers!");
-        }
-    }
-}
-
-void Application::createUIRenderPass() {
-    // Create an attachment description for the render pass
-    VkAttachmentDescription attachmentDescription = {};
-    attachmentDescription.format = swapchain.getImageFormat();
-    attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // Need UI to be drawn on top of main
-    attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // Last pass so we want to present after
-    attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-    // Create a color attachment reference
-    VkAttachmentReference attachmentReference = {};
-    attachmentReference.attachment = 0;
-    attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    // Create a subpass
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &attachmentReference;
-
-    // Create a subpass dependency to synchronize our main and UI render passes
-    // We want to render the UI after the geometry has been written to the framebuffer
-    // so we need to configure a subpass dependency as such
-    VkSubpassDependency subpassDependency = {};
-    subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Create external dependency
-    subpassDependency.dstSubpass = 0; // The geometry subpass comes first
-    subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    subpassDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; // Wait on writes
-    subpassDependency.dstStageMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    // Finally create the UI render pass
-    VkRenderPassCreateInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &attachmentDescription;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies = &subpassDependency;
-
-    if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &uiRenderPass) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create UI render pass!");
-    }
+UserInterface::UIContext Application::createUIContext() {
+    UserInterface::UIContext context = {};
+    context.window = window;
+    context.instance = instance;
+    context.physicalDevice = physicalDevice;
+    context.logicalDevice = logicalDevice;
+    context.graphicsQueue = graphicsQueue;
+    context.imageCount = swapchain.getImageCount();
+    context.graphicsFamilyIndex = queueIndices.graphicsFamilyIndex;
+    context.swapchain = swapchain;
+    return context;
 }
 
 void Application::drawFrame() {
@@ -724,14 +539,14 @@ void Application::drawFrame() {
     imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
     // Record UI draw data
-    recordUICommands(imageIndex);
+    auto uiCommandBuffer = ui.recordCommands(imageIndex, swapchain.getExtent());
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    std::array<VkCommandBuffer, 2> cmdBuffers = {commandBuffers[imageIndex], uiCommandBuffers[imageIndex]};
+    std::array<VkCommandBuffer, 2> cmdBuffers = {commandBuffers[imageIndex], uiCommandBuffer};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
@@ -771,44 +586,6 @@ void Application::drawFrame() {
 
     // Advance the current frame to get the semaphore data for the next frame
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-void Application::drawUI() {
-    // Start the Dear ImGui frame
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    static float f = 0.0f;
-    static int counter = 0;
-
-    ImGui::Begin("Renderer Options");
-    ImGui::Text("This is some useful text.");
-    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-    if (ImGui::Button("Button")) {
-        counter++;
-    }
-    ImGui::SameLine();
-    ImGui::Text("counter = %d", counter);
-
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::End();
-
-    ImGui::Render();
-}
-
-void Application::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) {
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    vkFreeCommandBuffers(logicalDevice, cmdPool, 1, &commandBuffer);
 }
 
 void Application::getDeviceQueueIndices() {
@@ -853,35 +630,7 @@ std::vector<const char *> Application::getRequiredExtensions() const {
 }
 
 void Application::initUI() {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-
-    // Initialize some DearImgui specific resources
-    createUIDescriptorPool();
-    createUIRenderPass();
-    createUICommandPool(&uiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    createUICommandBuffers();
-    createUIFramebuffers();
-
-    // Provide bind points from Vulkan API
-    ImGui_ImplGlfw_InitForVulkan(window, true);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance;
-    init_info.PhysicalDevice = physicalDevice;
-    init_info.Device = logicalDevice;
-    init_info.QueueFamily = queueIndices.graphicsFamilyIndex;
-    init_info.Queue = graphicsQueue;
-    init_info.DescriptorPool = uiDescriptorPool;
-    init_info.MinImageCount = swapchain.getImageCount();
-    init_info.ImageCount = swapchain.getImageCount();
-    ImGui_ImplVulkan_Init(&init_info, uiRenderPass);
-
-    // Upload the fonts for DearImgui
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands(uiCommandPool);
-    ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-    endSingleTimeCommands(commandBuffer, uiCommandPool);
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
+    ui.init(createUIContext());
 }
 
 void Application::initVulkan() {
@@ -995,7 +744,6 @@ void Application::recreateSwapchain() {
     vkDeviceWaitIdle(logicalDevice);
 
     cleanupSwapchain();
-    cleanupUIResources();
 
     // Recreate main application Vulkan resources
     createSwapchain();
@@ -1007,14 +755,13 @@ void Application::recreateSwapchain() {
 
     // We also need to take care of the UI
     ImGui_ImplVulkan_SetMinImageCount(swapchain.getImageCount());
-    createUICommandBuffers();
-    createUIFramebuffers();
+    ui.recreate(createUIContext());
 }
 
 void Application::run() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        drawUI();
+        ui.draw();
         drawFrame();
     }
 

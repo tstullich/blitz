@@ -4,10 +4,6 @@
 
 #include "swapchain.h"
 
-Swapchain::Swapchain() {}
-
-Swapchain::~Swapchain() {}
-
 void Swapchain::cleanup() {
     for (auto framebuffer : swapchainFramebuffers) {
         vkDestroyFramebuffer(ctx.logicalDevice, framebuffer, nullptr);
@@ -80,16 +76,16 @@ void Swapchain::createSwapchain() {
     VkExtent2D extent = pickSwapchainExtent(configuration.capabilities, ctx.extentWidth, ctx.extentHeight);
     VkPresentModeKHR presentMode = pickSwapchainPresentMode(configuration.presentModes);
 
-    imageCount = configuration.capabilities.minImageCount + 1;
-    if (configuration.capabilities.maxImageCount > 0 && imageCount > configuration.capabilities.maxImageCount) {
+    uint32_t minImageCount = configuration.capabilities.minImageCount + 1;
+    if (configuration.capabilities.maxImageCount > 0 && minImageCount > configuration.capabilities.maxImageCount) {
         // In case we are exceeding the maximum capacity for swap chain images we reset the value
-        imageCount = configuration.capabilities.maxImageCount;
+        minImageCount = configuration.capabilities.maxImageCount;
     }
 
     VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCreateInfo.surface = ctx.surface;
-    swapchainCreateInfo.minImageCount = imageCount;
+    swapchainCreateInfo.minImageCount = minImageCount;
     swapchainCreateInfo.imageFormat = surfaceFormat.format;
     swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
     swapchainCreateInfo.imageExtent = extent;
@@ -121,10 +117,9 @@ void Swapchain::createSwapchain() {
     swapchainExtent = extent;
 
     // Store the handles to the swap chain images for later use
-    uint32_t swapchainCount;
-    vkGetSwapchainImagesKHR(ctx.logicalDevice, swapchain, &swapchainCount, nullptr);
-    swapchainImages.resize(swapchainCount);
-    vkGetSwapchainImagesKHR(ctx.logicalDevice, swapchain, &swapchainCount, swapchainImages.data());
+    vkGetSwapchainImagesKHR(ctx.logicalDevice, swapchain, &imageCount, nullptr);
+    swapchainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(ctx.logicalDevice, swapchain, &imageCount, swapchainImages.data());
 }
 
 VkExtent2D Swapchain::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities, uint32_t width, uint32_t height) {

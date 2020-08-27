@@ -24,11 +24,11 @@ public:
         std::vector<VkPresentModeKHR> presentModes;
     };
 
-    Swapchain();
-
-    ~Swapchain();
+    Swapchain() = default;
 
     void cleanup();
+
+    void destroy();
 
     void init(const SwapchainContext &context);
 
@@ -65,13 +65,13 @@ private:
 
     static VkSurfaceFormatKHR pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats);
 
-    SwapchainContext ctx;
+    SwapchainContext ctx = {};
 
-    VkSwapchainKHR swapchain;
+    VkSwapchainKHR swapchain = {};
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
-    VkExtent2D swapchainExtent;
-    VkFormat swapchainImageFormat;
+    VkExtent2D swapchainExtent = {};
+    VkFormat swapchainImageFormat = {};
     std::vector<VkFramebuffer> swapchainFramebuffers;
 
     uint32_t imageCount = 0;

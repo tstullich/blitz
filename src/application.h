@@ -11,12 +11,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_vulkan.h"
-
 #include "shaderloader.h"
 #include "swapchain.h"
+#include "ui.h"
 
 class Application {
 public:
@@ -81,15 +78,11 @@ private:
         createInfo.pfnUserCallback = debugCallback;
     }
 
-    VkCommandBuffer beginSingleTimeCommands(VkCommandPool cmdPool);
-
     bool checkDeviceExtensions(VkPhysicalDevice device);
 
     bool checkValidationLayerSupport();
 
     void cleanupSwapchain();
-
-    void cleanupUIResources();
 
     void createCommandBuffers();
 
@@ -105,16 +98,6 @@ private:
 
     void createRenderPass();
 
-    void createUICommandBuffers();
-
-    void createUICommandPool(VkCommandPool *commandPool, VkCommandPoolCreateFlags flags);
-
-    void createUIDescriptorPool();
-
-    void createUIFramebuffers();
-
-    void createUIRenderPass();
-
     VkShaderModule createShaderModule(const std::vector<char> &shaderCode);
 
     void createSurface();
@@ -125,11 +108,9 @@ private:
 
     void createSyncObjects();
 
+    UserInterface::UIContext createUIContext();
+
     void drawFrame();
-
-    static void drawUI();
-
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool);
 
     void getDeviceQueueIndices();
 
@@ -154,29 +135,24 @@ private:
     uint32_t windowWidth = 1200;
     uint32_t windowHeight = 900;
 
-    GLFWwindow *window;
+    GLFWwindow *window = {};
 
-    VkInstance instance;
-    VkPhysicalDevice physicalDevice;
-    VkDevice logicalDevice;
+    VkInstance instance = {};
+    VkPhysicalDevice physicalDevice = {};
+    VkDevice logicalDevice = {};
 
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+    VkQueue graphicsQueue = {};
+    VkQueue presentQueue = {};
 
-    VkSurfaceKHR surface;
+    VkSurfaceKHR surface = {};
 
-    std::vector<VkFramebuffer> uiFramebuffers;
+    VkRenderPass renderPass = {};
 
-    VkRenderPass renderPass;
-    VkRenderPass uiRenderPass;
+    VkPipeline graphicsPipeline = {};
+    VkPipelineLayout graphicsPipelineLayout = {};
 
-    VkPipeline graphicsPipeline;
-    VkPipelineLayout graphicsPipelineLayout;
-
-    VkCommandPool commandPool;
-    VkCommandPool uiCommandPool;
+    VkCommandPool commandPool = {};
     std::vector<VkCommandBuffer> commandBuffers;
-    std::vector<VkCommandBuffer> uiCommandBuffers;
 
     uint32_t currentFrame = 0;
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
@@ -185,10 +161,11 @@ private:
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
 
-    VkDescriptorPool descriptorPool;
-    VkDescriptorPool uiDescriptorPool;
+    VkDescriptorPool descriptorPool = {};
 
     Swapchain swapchain;
+
+    UserInterface ui;
 
     bool framebufferResized = false;
 
@@ -202,10 +179,10 @@ private:
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-    QueueFamilyIndices queueIndices;
+    QueueFamilyIndices queueIndices = {};
 
     // Debug utilities
-    VkDebugUtilsMessengerEXT debugMessenger;
+    VkDebugUtilsMessengerEXT debugMessenger = {};
     #ifdef NDEBUG
         const bool enableValidationLayers = false;
     #else
