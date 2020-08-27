@@ -1,4 +1,4 @@
-#include "application.h"
+#include "renderer.h"
 
 int main() {
     Application app;

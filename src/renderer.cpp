@@ -1,4 +1,4 @@
-#include "application.h"
+#include "renderer.h"
 
 Application::Application() {
     initWindow();
