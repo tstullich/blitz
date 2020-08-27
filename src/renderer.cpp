@@ -1,18 +1,18 @@
 #include "renderer.h"
 
-Application::Application() {
+Renderer::Renderer() {
     initWindow();
     initVulkan();
     initUI();
 }
 
-Application::~Application() {
+Renderer::~Renderer() {
     std::cout << "Cleaning up" << std::endl;
     if (enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
-    //// Cleanup DearImGui
+    // Cleanup DearImGui
     ui.cleanup();
 
     // Cleanup Vulkan
@@ -41,7 +41,7 @@ Application::~Application() {
     glfwTerminate();
 }
 
-bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
+bool Renderer::checkDeviceExtensions(VkPhysicalDevice device) {
     uint32_t extensionsCount = 0;
     if (vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionsCount, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("Unable to enumerate device extensions!");
@@ -58,7 +58,7 @@ bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
     return requiredDeviceExtensions.empty();
 }
 
-bool Application::checkValidationLayerSupport() {
+bool Renderer::checkValidationLayerSupport() {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -82,7 +82,7 @@ bool Application::checkValidationLayerSupport() {
 }
 
 // Destroys all the resources associated with swapchain recreation
-void Application::cleanupSwapchain() {
+void Renderer::cleanupSwapchain() {
     vkFreeCommandBuffers(logicalDevice, commandPool, static_cast<uint32_t>(commandBuffers.size()),
                          commandBuffers.data());
 
@@ -93,7 +93,7 @@ void Application::cleanupSwapchain() {
     swapchain.cleanup();
 }
 
-void Application::createCommandBuffers() {
+void Renderer::createCommandBuffers() {
     commandBuffers.resize(swapchain.getFramebufferSize());
 
     VkCommandBufferAllocateInfo allocInfo = {};
@@ -138,7 +138,7 @@ void Application::createCommandBuffers() {
     }
 }
 
-void Application::createCommandPool() {
+void Renderer::createCommandPool() {
     VkCommandPoolCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     createInfo.queueFamilyIndex = queueIndices.graphicsFamilyIndex;
@@ -148,7 +148,7 @@ void Application::createCommandPool() {
     }
 }
 
-void Application::createDescriptorPool() {
+void Renderer::createDescriptorPool() {
     VkDescriptorPoolSize poolSize = {};
     poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSize.descriptorCount = static_cast<uint32_t>(swapchain.getImagesSize());
@@ -164,7 +164,7 @@ void Application::createDescriptorPool() {
     }
 }
 
-void Application::createGraphicsPipeline() {
+void Renderer::createGraphicsPipeline() {
     // Load our shader modules in from disk
     auto vertShaderCode = ShaderLoader::load("shaders/vert.spv");
     auto fragShaderCode = ShaderLoader::load("shaders/frag.spv");
@@ -303,7 +303,7 @@ void Application::createGraphicsPipeline() {
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
 }
 
-void Application::createInstance() {
+void Renderer::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error("Unable to establish validation layer support!");
     }
@@ -342,7 +342,7 @@ void Application::createInstance() {
     }
 }
 
-void Application::createLogicalDevice() {
+void Renderer::createLogicalDevice() {
     // Setup our Command Queues
     std::set<uint32_t> uniqueQueueIndices = {queueIndices.graphicsFamilyIndex, queueIndices.presentFamilyIndex};
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -385,7 +385,7 @@ void Application::createLogicalDevice() {
     vkGetDeviceQueue(logicalDevice, queueIndices.presentFamilyIndex, 0, &presentQueue);
 }
 
-void Application::createRenderPass() {
+void Renderer::createRenderPass() {
     // Configure a color attachment that will determine how the framebuffer is used
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapchain.getImageFormat();
@@ -430,7 +430,7 @@ void Application::createRenderPass() {
     }
 }
 
-VkShaderModule Application::createShaderModule(const std::vector<char> &shaderCode) {
+VkShaderModule Renderer::createShaderModule(const std::vector<char> &shaderCode) {
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = shaderCode.size();
@@ -445,17 +445,17 @@ VkShaderModule Application::createShaderModule(const std::vector<char> &shaderCo
 }
 
 // For cross-platform compatibility we let GLFW take care of the surface creation
-void Application::createSurface() {
+void Renderer::createSurface() {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create window surface!");
     }
 }
 
-void Application::createSwapchain() {
+void Renderer::createSwapchain() {
     swapchain.init(createSwapchainContext());
 }
 
-Swapchain::SwapchainContext Application::createSwapchainContext() {
+Swapchain::SwapchainContext Renderer::createSwapchainContext() {
     Swapchain::SwapchainContext ctx = {};
     ctx.physicalDevice = physicalDevice;
     ctx.logicalDevice = logicalDevice;
@@ -468,7 +468,7 @@ Swapchain::SwapchainContext Application::createSwapchainContext() {
     return ctx;
 }
 
-void Application::createSyncObjects() {
+void Renderer::createSyncObjects() {
     // Create our semaphores and fences for synchronizing the GPU and CPU
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -500,7 +500,7 @@ void Application::createSyncObjects() {
     }
 }
 
-UserInterface::UIContext Application::createUIContext() {
+UserInterface::UIContext Renderer::createUIContext() {
     UserInterface::UIContext context = {};
     context.window = window;
     context.instance = instance;
@@ -513,7 +513,7 @@ UserInterface::UIContext Application::createUIContext() {
     return context;
 }
 
-void Application::drawFrame() {
+void Renderer::drawFrame() {
     // Sync for next frame. Fences also need to be manually reset unlike semaphores, which is done here
     vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -588,7 +588,7 @@ void Application::drawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Application::getDeviceQueueIndices() {
+void Renderer::getDeviceQueueIndices() {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
 
@@ -613,7 +613,7 @@ void Application::getDeviceQueueIndices() {
     }
 }
 
-std::vector<const char *> Application::getRequiredExtensions() const {
+std::vector<const char *> Renderer::getRequiredExtensions() const {
     uint32_t glfwExtensionCount = 0;
     const char** glfwRequiredExtensions;
     glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -629,11 +629,11 @@ std::vector<const char *> Application::getRequiredExtensions() const {
     return extensions;
 }
 
-void Application::initUI() {
+void Renderer::initUI() {
     ui.init(createUIContext());
 }
 
-void Application::initVulkan() {
+void Renderer::initVulkan() {
     createInstance();
     setupDebugMessenger();
     createSurface();
@@ -650,7 +650,7 @@ void Application::initVulkan() {
     createDescriptorPool();
 }
 
-void Application::initWindow() {
+void Renderer::initWindow() {
     if (!glfwInit()) {
         throw std::runtime_error("Unable to initialize GLFW!");
     }
@@ -671,7 +671,7 @@ void Application::initWindow() {
     }
 }
 
-bool Application::isDeviceSuitable(VkPhysicalDevice device) {
+bool Renderer::isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(device, &properties);
     bool extensionsSupported = checkDeviceExtensions(device);
@@ -686,13 +686,13 @@ bool Application::isDeviceSuitable(VkPhysicalDevice device) {
     return swapChainAdequate && extensionsSupported && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 }
 
-void Application::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE || key == GLFW_KEY_Q) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 }
 
-VkPhysicalDevice Application::pickPhysicalDevice() {
+VkPhysicalDevice Renderer::pickPhysicalDevice() {
     uint32_t physicalDeviceCount = 0;
     if (vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("Unable to enumerate physical devices!");
@@ -729,7 +729,7 @@ VkPhysicalDevice Application::pickPhysicalDevice() {
 
 // In case the swapchain is invalidated, i.e. during window resizing,
 // we need to implement a mechanism to recreate it
-void Application::recreateSwapchain() {
+void Renderer::recreateSwapchain() {
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0) {
@@ -758,7 +758,7 @@ void Application::recreateSwapchain() {
     ui.recreate(createUIContext());
 }
 
-void Application::run() {
+void Renderer::run() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         ui.draw();
@@ -769,7 +769,7 @@ void Application::run() {
     vkDeviceWaitIdle(logicalDevice);
 }
 
-void Application::setupDebugMessenger() {
+void Renderer::setupDebugMessenger() {
     if (!enableValidationLayers) {
         return;
     }

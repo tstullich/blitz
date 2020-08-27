@@ -15,11 +15,11 @@
 #include "swapchain.h"
 #include "ui.h"
 
-class Application {
+class Renderer {
 public:
-    Application();
+    Renderer();
 
-    ~Application();
+    ~Renderer();
 
     void run();
 
@@ -62,7 +62,7 @@ private:
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+        auto app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
     }
 
@@ -125,8 +125,6 @@ private:
     bool isDeviceSuitable(VkPhysicalDevice device);
 
     VkPhysicalDevice pickPhysicalDevice();
-
-    void recordUICommands(uint32_t bufferIdx);
 
     void recreateSwapchain();
 

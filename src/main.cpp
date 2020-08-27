@@ -1,7 +1,7 @@
 #include "renderer.h"
 
 int main() {
-    Application app;
+    Renderer app;
     try {
         app.run();
     } catch (std::exception &e) {

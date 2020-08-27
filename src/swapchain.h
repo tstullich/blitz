@@ -28,8 +28,6 @@ public:
 
     void cleanup();
 
-    void destroy();
-
     void init(const SwapchainContext &context);
 
     void initFramebuffers(const VkRenderPass &renderPass);
