@@ -26,9 +26,6 @@ Renderer::~Renderer() {
 
     vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 
-    vkDestroyPipeline(logicalDevice, computePipeline, nullptr);
-    vkDestroyPipelineLayout(logicalDevice, computePipelineLayout, nullptr);
-
     vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(logicalDevice, graphicsPipelineLayout, nullptr);
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
@@ -149,39 +146,6 @@ void Renderer::createCommandPool() {
     if (vkCreateCommandPool(logicalDevice, &createInfo, nullptr, &commandPool) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create command pool!");
     }
-}
-
-void Renderer::createComputePipeline() {
-    auto shaderCode = ShaderLoader::load("shaders/comp.spv");
-    auto shaderModule = createShaderModule(shaderCode);
-
-    VkPipelineShaderStageCreateInfo computeStage = {};
-    computeStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    computeStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    computeStage.module = shaderModule;
-    computeStage.pName = "main";
-
-    // TODO Fill in descriptor information and push constants here
-    VkPipelineLayoutCreateInfo layoutCreateInfo = {};
-    layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutCreateInfo.setLayoutCount = 0;
-    layoutCreateInfo.pSetLayouts = VK_NULL_HANDLE;
-    layoutCreateInfo.pushConstantRangeCount = 0;
-    layoutCreateInfo.pPushConstantRanges = VK_NULL_HANDLE;
-    if (vkCreatePipelineLayout(logicalDevice, &layoutCreateInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create compute pipeline layout!");
-    }
-
-    VkComputePipelineCreateInfo pipelineCreateInfo = {};
-    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineCreateInfo.stage = computeStage;
-    pipelineCreateInfo.layout = computePipelineLayout;
-    if (vkCreateComputePipelines(logicalDevice, nullptr, 1, &pipelineCreateInfo, nullptr, &computePipeline) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create compute pipeline!");
-    }
-
-    // Destroy shader module
-    vkDestroyShaderModule(logicalDevice, shaderModule, nullptr);
 }
 
 void Renderer::createDescriptorPool() {
@@ -676,7 +640,6 @@ void Renderer::initVulkan() {
     physicalDevice = pickPhysicalDevice();
     getDeviceQueueIndices();
     createLogicalDevice();
-    createComputePipeline();
     createSwapchain();
     createRenderPass();
     createGraphicsPipeline();

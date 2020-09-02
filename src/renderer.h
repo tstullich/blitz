@@ -88,8 +88,6 @@ private:
 
     void createCommandPool();
 
-    void createComputePipeline();
-
     void createDescriptorPool();
 
     void createGraphicsPipeline();
@@ -147,9 +145,6 @@ private:
     VkSurfaceKHR surface = {};
 
     VkRenderPass renderPass = {};
-
-    VkPipeline computePipeline = {};
-    VkPipelineLayout computePipelineLayout = {};
 
     VkPipeline graphicsPipeline = {};
     VkPipelineLayout graphicsPipelineLayout = {};
