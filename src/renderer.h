@@ -11,6 +11,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "buffer.h"
 #include "gltfloader.h"
 #include "shaderloader.h"
 #include "swapchain.h"
@@ -86,10 +87,7 @@ private:
 
     void cleanupSwapchain();
 
-    void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
-
-    void createBuffer(VkDeviceSize deviceSize, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-                      VkBuffer &buffer, VkDeviceMemory &deviceMemory);
+    Buffer::BufferContext createBufferContext();
 
     void createCommandBuffers();
 
@@ -135,8 +133,6 @@ private:
 
     bool isDeviceSuitable(VkPhysicalDevice device);
 
-    uint32_t pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-
     VkPhysicalDevice pickPhysicalDevice();
 
     void recreateSwapchain();
@@ -157,10 +153,8 @@ private:
 
     VkSurfaceKHR surface = {};
 
-    VkBuffer vertexBuffer = {};
-    VkBuffer indexBuffer = {};
-    VkDeviceMemory vertexBufferMemory = {};
-    VkDeviceMemory indexBufferMemory = {};
+    VertexBuffer vertexBuffer;
+    IndexBuffer vertIndexBuffer;
 
     VkRenderPass renderPass = {};
 
@@ -195,16 +189,14 @@ private:
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-    const std::array<Vertex, 4> vertices = {
+    const std::vector<Vertex> vertices = {
         Vertex { {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f} },
         Vertex { {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f} },
         Vertex { {0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f} },
         Vertex { {-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f} }
     };
 
-    const std::array<uint32_t, 6> vertIndices = {
-        0, 1, 2, 2, 3, 0
-    };
+    const std::vector<uint32_t> vertIndices = { 0, 1, 2, 2, 3, 0 };
 
     QueueFamilyIndices queueIndices = {};
 

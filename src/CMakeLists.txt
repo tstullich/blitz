@@ -7,7 +7,7 @@ SET(SRCS main.cpp
         ui.h
         vertex.h
         gltfloader.h
-        gltfloader.cpp)
+        gltfloader.cpp buffer.cpp buffer.h)
 
 add_executable(renderer ${SRCS})
 

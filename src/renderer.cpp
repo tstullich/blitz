@@ -16,11 +16,8 @@ Renderer::~Renderer() {
     ui.cleanup();
 
     // Cleanup Vulkan
-    vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
-    vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
-
-    vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
-    vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+    vertexBuffer.cleanup(logicalDevice);
+    vertIndexBuffer.cleanup(logicalDevice);
 
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 
@@ -99,75 +96,14 @@ void Renderer::cleanupSwapchain() {
     swapchain.cleanup();
 }
 
-// TODO Create a separate command pool for copying buffers and use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
-// during command pool creation
-void Renderer::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
-    VkCommandBufferAllocateInfo allocateInfo = {};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocateInfo.commandPool = commandPool;
-    allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocateInfo.commandBufferCount = 1;
+Buffer::BufferContext Renderer::createBufferContext() {
+    Buffer::BufferContext ctx = {};
+    ctx.physicalDevice = physicalDevice;
+    ctx.logicalDevice = logicalDevice;
+    ctx.queue = graphicsQueue;
+    ctx.commandPool = commandPool;
 
-    VkCommandBuffer commandBuffer;
-    if (vkAllocateCommandBuffers(logicalDevice, &allocateInfo, &commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create memory transfer command buffer!");
-    }
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to record one-time command buffer!");
-    }
-
-    // Record the copy command to our one-time buffer
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0; // Need this for GLTF later
-    copyRegion.dstOffset = 0; // Need this for GLTF later
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copyRegion);
-
-    vkEndCommandBuffer(commandBuffer);
-
-    // Don't need to set semaphores since we do not need to sync
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    // TODO If we want to upload more vertex buffers later we could use some fences here
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-    vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
-}
-
-void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-                            VkBuffer &buffer, VkDeviceMemory &deviceMemory) {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create vertex buffer!");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements);
-
-    // Allocate memory on the GPU. The type of memory also needs to be visible for the host
-    // so we search for HOST_VISIBLE and HOST_COHERENT memory types
-    VkMemoryAllocateInfo allocateInfo = {};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocateInfo.allocationSize = memRequirements.size;
-    allocateInfo.memoryTypeIndex = pickMemoryType(memRequirements.memoryTypeBits, properties);
-    if (vkAllocateMemory(logicalDevice, &allocateInfo, nullptr, &deviceMemory) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to allocate device memory!");
-    }
-
-    // Bind the allocated memory to the vertex buffer
-    vkBindBufferMemory(logicalDevice, buffer, deviceMemory, 0);
+    return ctx;
 }
 
 void Renderer::createCommandBuffers() {
@@ -209,11 +145,11 @@ void Renderer::createCommandBuffers() {
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
         // We only have one vertex buffer right now but could easily expand this
-        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkBuffer vertexBuffers[] = { vertexBuffer.getBuffer() };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffers[i], vertIndexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(vertIndices.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -393,26 +329,8 @@ void Renderer::createGraphicsPipeline() {
 }
 
 void Renderer::createIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertIndices[0]) * vertIndices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMemory);
-
-    void *data;
-    vkMapMemory(logicalDevice, stagingMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertIndices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(logicalDevice, stagingMemory);
-
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-    // Cleanup
-    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(logicalDevice, stagingMemory, nullptr);
+    auto ctx = createBufferContext();
+    vertIndexBuffer.create(ctx, vertIndices);
 }
 
 void Renderer::createInstance() {
@@ -626,28 +544,8 @@ UserInterface::UIContext Renderer::createUIContext() {
 }
 
 void Renderer::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    // We use a staging buffer to transfer the host buffer data to the GPU
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMemory);
-
-    void *data;
-    vkMapMemory(logicalDevice, stagingMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(logicalDevice, stagingMemory);
-
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                 VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-
-    // Copy the data into GPU memory
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-    // Cleanup the host visible memory
-    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-    vkFreeMemory(logicalDevice, stagingMemory, nullptr);
+    auto ctx = createBufferContext();
+    vertexBuffer.create(ctx, vertices);
 }
 
 void Renderer::drawFrame() {
@@ -829,19 +727,6 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     if (key == GLFW_KEY_ESCAPE || key == GLFW_KEY_Q) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
-}
-
-uint32_t Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
-        if (typeFilter & (1u << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    throw std::runtime_error("Unable to find proper memory type on the GPU!");
 }
 
 VkPhysicalDevice Renderer::pickPhysicalDevice() {
