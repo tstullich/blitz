@@ -7,6 +7,8 @@
 
 class ShaderLoader {
 public:
+    ShaderLoader() = delete;
+
     static std::vector<char> load(const std::string &filePath) {
         std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 
@@ -24,7 +26,4 @@ public:
 
         return buffer;
     }
-
-private:
-    ShaderLoader() = default;
 };
