@@ -8,5 +8,4 @@ else
   # By GLSL convention we search for the following files that have the given extensions below
   glslc shader.vert -o vert.spv
   glslc shader.frag -o frag.spv
-  glslc shader.comp -o comp.spv
 fi

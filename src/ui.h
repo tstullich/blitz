@@ -44,15 +44,15 @@ private:
 
     void cleanupResources();
 
-    void createUICommandBuffers();
+    void createCommandBuffers();
 
-    void createUICommandPool(VkCommandPoolCreateFlags flags);
+    void createCommandPool(VkCommandPoolCreateFlags flags);
 
-    void createUIDescriptorPool();
+    void createDescriptorPool();
 
-    void createUIFramebuffers();
+    void createFramebuffers();
 
-    void createUIRenderPass();
+    void createRenderPass();
 
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const;
 

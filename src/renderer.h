@@ -11,9 +11,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "gltfloader.h"
 #include "shaderloader.h"
 #include "swapchain.h"
 #include "ui.h"
+#include "vertex.h"
 
 class Renderer {
 public:
@@ -84,6 +86,11 @@ private:
 
     void cleanupSwapchain();
 
+    void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
+
+    void createBuffer(VkDeviceSize deviceSize, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+                      VkBuffer &buffer, VkDeviceMemory &deviceMemory);
+
     void createCommandBuffers();
 
     void createCommandPool();
@@ -91,6 +98,8 @@ private:
     void createDescriptorPool();
 
     void createGraphicsPipeline();
+
+    void createIndexBuffer();
 
     void createInstance();
 
@@ -110,6 +119,8 @@ private:
 
     UserInterface::UIContext createUIContext();
 
+    void createVertexBuffer();
+
     void drawFrame();
 
     void getDeviceQueueIndices();
@@ -124,14 +135,16 @@ private:
 
     bool isDeviceSuitable(VkPhysicalDevice device);
 
+    uint32_t pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
     VkPhysicalDevice pickPhysicalDevice();
 
     void recreateSwapchain();
 
     void setupDebugMessenger();
 
-    uint32_t windowWidth = 1200;
-    uint32_t windowHeight = 900;
+    uint32_t windowWidth = 1920;
+    uint32_t windowHeight = 1080;
 
     GLFWwindow *window = {};
 
@@ -143,6 +156,11 @@ private:
     VkQueue presentQueue = {};
 
     VkSurfaceKHR surface = {};
+
+    VkBuffer vertexBuffer = {};
+    VkBuffer indexBuffer = {};
+    VkDeviceMemory vertexBufferMemory = {};
+    VkDeviceMemory indexBufferMemory = {};
 
     VkRenderPass renderPass = {};
 
@@ -175,6 +193,17 @@ private:
 
     const std::array<const char*, 1> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+
+    const std::array<Vertex, 4> vertices = {
+        Vertex { {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f} },
+        Vertex { {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f} },
+        Vertex { {0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f} },
+        Vertex { {-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f} }
+    };
+
+    const std::array<uint32_t, 6> vertIndices = {
+        0, 1, 2, 2, 3, 0
     };
 
     QueueFamilyIndices queueIndices = {};

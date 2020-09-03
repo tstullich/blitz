@@ -16,6 +16,12 @@ Renderer::~Renderer() {
     ui.cleanup();
 
     // Cleanup Vulkan
+    vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
+    vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
+
+    vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+    vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -93,6 +99,77 @@ void Renderer::cleanupSwapchain() {
     swapchain.cleanup();
 }
 
+// TODO Create a separate command pool for copying buffers and use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
+// during command pool creation
+void Renderer::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
+    VkCommandBufferAllocateInfo allocateInfo = {};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocateInfo.commandPool = commandPool;
+    allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocateInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    if (vkAllocateCommandBuffers(logicalDevice, &allocateInfo, &commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create memory transfer command buffer!");
+    }
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to record one-time command buffer!");
+    }
+
+    // Record the copy command to our one-time buffer
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0; // Need this for GLTF later
+    copyRegion.dstOffset = 0; // Need this for GLTF later
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    // Don't need to set semaphores since we do not need to sync
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    // TODO If we want to upload more vertex buffers later we could use some fences here
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicsQueue);
+    vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+}
+
+void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+                            VkBuffer &buffer, VkDeviceMemory &deviceMemory) {
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create vertex buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements);
+
+    // Allocate memory on the GPU. The type of memory also needs to be visible for the host
+    // so we search for HOST_VISIBLE and HOST_COHERENT memory types
+    VkMemoryAllocateInfo allocateInfo = {};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocateInfo.allocationSize = memRequirements.size;
+    allocateInfo.memoryTypeIndex = pickMemoryType(memRequirements.memoryTypeBits, properties);
+    if (vkAllocateMemory(logicalDevice, &allocateInfo, nullptr, &deviceMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to allocate device memory!");
+    }
+
+    // Bind the allocated memory to the vertex buffer
+    vkBindBufferMemory(logicalDevice, buffer, deviceMemory, 0);
+}
+
 void Renderer::createCommandBuffers() {
     commandBuffers.resize(swapchain.getFramebufferSize());
 
@@ -128,8 +205,17 @@ void Renderer::createCommandBuffers() {
 
         // Begin recording commands into the command buffer
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+        // We only have one vertex buffer right now but could easily expand this
+        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(vertIndices.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
@@ -186,14 +272,17 @@ void Renderer::createGraphicsPipeline() {
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+    // Get an input binding
+    auto vertexDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
     // Create information struct for vertex input
-    // TODO: Adjust this so that we actually take input from a vertex buffer
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &vertexDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     // Create information struct about input assembly
     // We'll be organizing our vertices in triangles and the GPU should treat the data accordingly
@@ -301,6 +390,29 @@ void Renderer::createGraphicsPipeline() {
     // Cleanup our shader modules after pipeline creation
     vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
+}
+
+void Renderer::createIndexBuffer() {
+    VkDeviceSize bufferSize = sizeof(vertIndices[0]) * vertIndices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMemory);
+
+    void *data;
+    vkMapMemory(logicalDevice, stagingMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertIndices.data(), static_cast<size_t>(bufferSize));
+    vkUnmapMemory(logicalDevice, stagingMemory);
+
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+    // Cleanup
+    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, stagingMemory, nullptr);
 }
 
 void Renderer::createInstance() {
@@ -513,6 +625,31 @@ UserInterface::UIContext Renderer::createUIContext() {
     return context;
 }
 
+void Renderer::createVertexBuffer() {
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+    // We use a staging buffer to transfer the host buffer data to the GPU
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMemory);
+
+    void *data;
+    vkMapMemory(logicalDevice, stagingMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+    vkUnmapMemory(logicalDevice, stagingMemory);
+
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                 VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+
+    // Copy the data into GPU memory
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    // Cleanup the host visible memory
+    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, stagingMemory, nullptr);
+}
+
 void Renderer::drawFrame() {
     // Sync for next frame. Fences also need to be manually reset unlike semaphores, which is done here
     vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -645,6 +782,8 @@ void Renderer::initVulkan() {
     createGraphicsPipeline();
     swapchain.initFramebuffers(renderPass);
     createCommandPool();
+    createVertexBuffer();
+    createIndexBuffer();
     createCommandBuffers();
     createSyncObjects();
     createDescriptorPool();
@@ -690,6 +829,19 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     if (key == GLFW_KEY_ESCAPE || key == GLFW_KEY_Q) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
+}
+
+uint32_t Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
+        if (typeFilter & (1u << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("Unable to find proper memory type on the GPU!");
 }
 
 VkPhysicalDevice Renderer::pickPhysicalDevice() {

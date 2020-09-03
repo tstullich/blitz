@@ -40,11 +40,11 @@ void UserInterface::init(const UIContext &ctx) {
     ImGui::StyleColorsDark();
 
     // Initialize some DearImgui specific resources
-    createUIDescriptorPool();
-    createUIRenderPass();
-    createUICommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    createUICommandBuffers();
-    createUIFramebuffers();
+    createDescriptorPool();
+    createRenderPass();
+    createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    createCommandBuffers();
+    createFramebuffers();
 
     // Provide bind points from Vulkan API
     ImGui_ImplGlfw_InitForVulkan(context.window, true);
@@ -88,7 +88,7 @@ VkCommandBuffer UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) {
 }
 
 
-void UserInterface::createUICommandBuffers() {
+void UserInterface::createCommandBuffers() {
     commandBuffers.resize(context.imageCount);
 
     VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
@@ -102,7 +102,7 @@ void UserInterface::createUICommandBuffers() {
     }
 }
 
-void UserInterface::createUICommandPool(VkCommandPoolCreateFlags flags) {
+void UserInterface::createCommandPool(VkCommandPoolCreateFlags flags) {
     VkCommandPoolCreateInfo commandPoolCreateInfo = {};
     commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandPoolCreateInfo.queueFamilyIndex = context.graphicsFamilyIndex;
@@ -115,7 +115,7 @@ void UserInterface::createUICommandPool(VkCommandPoolCreateFlags flags) {
 
 // Copied this code from DearImgui's setup:
 // https://github.com/ocornut/imgui/blob/master/examples/example_glfw_vulkan/main.cpp
-void UserInterface::createUIDescriptorPool() {
+void UserInterface::createDescriptorPool() {
     VkDescriptorPoolSize pool_sizes[] = {
             { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
             { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
@@ -141,7 +141,7 @@ void UserInterface::createUIDescriptorPool() {
     }
 }
 
-void UserInterface::createUIFramebuffers() {
+void UserInterface::createFramebuffers() {
     // Create some UI framebuffers. These will be used in the render pass for the UI
     framebuffers.resize(context.imageCount);
     VkImageView attachment[1];
@@ -162,7 +162,7 @@ void UserInterface::createUIFramebuffers() {
     }
 }
 
-void UserInterface::createUIRenderPass() {
+void UserInterface::createRenderPass() {
     // Create an attachment description for the render pass
     VkAttachmentDescription attachmentDescription = {};
     attachmentDescription.format = context.swapchain.getImageFormat();
@@ -266,6 +266,6 @@ void UserInterface::recreate(const UIContext &ctx) {
     context = ctx;
 
     ImGui_ImplVulkan_SetMinImageCount(context.imageCount);
-    createUICommandBuffers();
-    createUIFramebuffers();
+    createCommandBuffers();
+    createFramebuffers();
 }
