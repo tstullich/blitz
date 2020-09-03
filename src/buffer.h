@@ -7,6 +7,7 @@
 
 #include "vertex.h"
 
+// TODO Templatize this logic since vertex and index buffer creation is almost identical
 class Buffer {
 public:
     struct BufferContext {
