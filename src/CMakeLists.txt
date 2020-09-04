@@ -7,12 +7,15 @@ SET(SRCS main.cpp
         ui.h
         vertex.h
         gltfloader.h
-        gltfloader.cpp buffer.cpp buffer.h)
+        gltfloader.cpp
+        buffer.cpp
+        buffer.h
+        camera.h)
 
 add_executable(renderer ${SRCS})
 
 add_subdirectory(imgui)
 
-target_include_directories(renderer PUBLIC imgui cgltf)
+target_include_directories(renderer PUBLIC imgui tinygltf)
 
 target_link_libraries(renderer glfw Vulkan::Vulkan glm::glm)
