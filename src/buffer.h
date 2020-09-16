@@ -5,6 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "camera.h"
 #include "vertex.h"
 
 // TODO Templatize this logic since vertex and index buffer creation is almost identical
@@ -20,6 +21,8 @@ public:
     Buffer() = default;
 
     void cleanup(VkDevice logicalDevice);
+
+    inline VkDeviceMemory getDeviceMemory() const { return deviceMemory; }
 
     inline VkBuffer getBuffer() const { return buffer; }
 
@@ -48,4 +51,11 @@ public:
     IndexBuffer() = default;
 
     void create(const BufferContext &ctx, const std::vector<uint32_t> &vertIndices);
+};
+
+class UniformBuffer : public Buffer {
+public:
+    UniformBuffer() = default;
+
+    void create(const BufferContext &ctx, const Camera &camera);
 };

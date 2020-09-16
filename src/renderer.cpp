@@ -19,7 +19,12 @@ Renderer::~Renderer() {
     vertexBuffer.cleanup(logicalDevice);
     vertIndexBuffer.cleanup(logicalDevice);
 
+    for (auto& uniformBuffer : uniformBuffers) {
+        uniformBuffer.cleanup(logicalDevice);
+    }
+
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
@@ -86,13 +91,16 @@ bool Renderer::checkValidationLayerSupport() {
 
 // Destroys all the resources associated with swapchain recreation
 void Renderer::cleanupSwapchain() {
+    for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
+        uniformBuffers[i].cleanup(logicalDevice);
+    }
+
     vkFreeCommandBuffers(logicalDevice, commandPool, static_cast<uint32_t>(commandBuffers.size()),
-                         commandBuffers.data());
+                     commandBuffers.data());
 
     vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(logicalDevice, graphicsPipelineLayout, nullptr);
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
-
     swapchain.cleanup();
 }
 
@@ -151,6 +159,8 @@ void Renderer::createCommandBuffers() {
 
         vkCmdBindIndexBuffer(commandBuffers[i], vertIndexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
+        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(vertIndices.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -170,6 +180,7 @@ void Renderer::createCommandPool() {
     }
 }
 
+// TODO Check if this is used by Dear IMGUI and how to move it
 void Renderer::createDescriptorPool() {
     VkDescriptorPoolSize poolSize = {};
     poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -183,6 +194,55 @@ void Renderer::createDescriptorPool() {
 
     if (vkCreateDescriptorPool(logicalDevice, &createInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create descriptor pool!");
+    }
+}
+
+void Renderer::createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding layoutBinding = {};
+    layoutBinding.binding = 0;
+    layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBinding.descriptorCount = 1;
+    layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
+    layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutCreateInfo.bindingCount = 1;
+    layoutCreateInfo.pBindings = &layoutBinding;
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutCreateInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create descriptor set layouts!");
+    }
+}
+
+void Renderer::createDescriptorSets() {
+    std::vector<VkDescriptorSetLayout> layouts(swapchain.getImagesSize(), descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchain.getImagesSize());
+    allocInfo.pSetLayouts = layouts.data();
+
+    descriptorSets.resize(swapchain.getImagesSize());
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = uniformBuffers[i].getBuffer();
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(Camera);
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
     }
 }
 
@@ -256,7 +316,7 @@ void Renderer::createGraphicsPipeline() {
     rasterizerCreateInfo.rasterizerDiscardEnable = VK_FALSE;
     rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizerCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizerCreateInfo.lineWidth = 1.0f;
     rasterizerCreateInfo.depthBiasEnable = VK_FALSE;
     rasterizerCreateInfo.depthBiasConstantFactor = 0.0f;
@@ -294,6 +354,8 @@ void Renderer::createGraphicsPipeline() {
     // Create a pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutCreateInfo.setLayoutCount = 1;
+    pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
 
     if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, nullptr,
                                &graphicsPipelineLayout) != VK_SUCCESS) {
@@ -543,6 +605,14 @@ UserInterface::UIContext Renderer::createUIContext() {
     return context;
 }
 
+void Renderer::createUniformBuffers() {
+    Camera cam{};
+    uniformBuffers.resize(swapchain.getImagesSize());
+    for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
+        uniformBuffers[i].create(createBufferContext(), cam);
+    }
+}
+
 void Renderer::createVertexBuffer() {
     auto ctx = createBufferContext();
     vertexBuffer.create(ctx, vertices);
@@ -575,6 +645,8 @@ void Renderer::drawFrame() {
 
     // Record UI draw data
     auto uiCommandBuffer = ui.recordCommands(imageIndex, swapchain.getExtent());
+
+    updateUniformBuffer(imageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -677,14 +749,17 @@ void Renderer::initVulkan() {
     createLogicalDevice();
     createSwapchain();
     createRenderPass();
+    createDescriptorSetLayout();
     createGraphicsPipeline();
     swapchain.initFramebuffers(renderPass);
     createCommandPool();
     createVertexBuffer();
     createIndexBuffer();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
     createCommandBuffers();
     createSyncObjects();
-    createDescriptorPool();
 }
 
 void Renderer::initWindow() {
@@ -788,6 +863,9 @@ void Renderer::recreateSwapchain() {
     createGraphicsPipeline();
     swapchain.initFramebuffers(renderPass);
     createDescriptorPool();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
     createCommandBuffers();
 
     // We also need to take care of the UI
@@ -817,4 +895,23 @@ void Renderer::setupDebugMessenger() {
     if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
         throw std::runtime_error("Failed to setup debug messenger!");
     }
+}
+
+void Renderer::updateUniformBuffer(size_t bufferIdx) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    Camera cam{};
+    auto extent = swapchain.getExtent();
+    cam.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    cam.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    cam.proj = glm::perspective(glm::radians(45.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
+    cam.proj[1][1] *= -1;
+
+    void* data;
+    vkMapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory(), 0, sizeof(cam), 0, &data);
+    memcpy(data, &cam, sizeof(cam));
+    vkUnmapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory());
 }

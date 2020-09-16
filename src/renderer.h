@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <unordered_map>
@@ -10,6 +11,10 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "buffer.h"
 #include "gltfloader.h"
@@ -95,6 +100,10 @@ private:
 
     void createDescriptorPool();
 
+    void createDescriptorSetLayout();
+
+    void createDescriptorSets();
+
     void createGraphicsPipeline();
 
     void createIndexBuffer();
@@ -116,6 +125,8 @@ private:
     void createSyncObjects();
 
     UserInterface::UIContext createUIContext();
+
+    void createUniformBuffers();
 
     void createVertexBuffer();
 
@@ -139,6 +150,8 @@ private:
 
     void setupDebugMessenger();
 
+    void updateUniformBuffer(size_t bufferIdx);
+
     uint32_t windowWidth = 1920;
     uint32_t windowHeight = 1080;
 
@@ -156,6 +169,8 @@ private:
     VertexBuffer vertexBuffer;
     IndexBuffer vertIndexBuffer;
 
+    std::vector<UniformBuffer> uniformBuffers;
+
     VkRenderPass renderPass = {};
 
     VkPipeline graphicsPipeline = {};
@@ -172,6 +187,8 @@ private:
     std::vector<VkFence> imagesInFlight;
 
     VkDescriptorPool descriptorPool = {};
+    VkDescriptorSetLayout descriptorSetLayout = {};
+    std::vector<VkDescriptorSet> descriptorSets = {};
 
     Swapchain swapchain;
 
