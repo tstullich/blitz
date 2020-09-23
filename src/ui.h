@@ -27,11 +27,17 @@ public:
         Swapchain swapchain;
     };
 
+    struct UIOptions {
+        alignas(16) bool rotate;
+    };
+
     UserInterface() = default;
 
     void cleanup();
 
     void draw();
+
+    inline UIOptions getOptions() const { return options; }
 
     void init(const UIContext &rendererCtx);
 
@@ -57,6 +63,7 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const;
 
     UIContext context = {};
+    UIOptions options = { .rotate = true };
 
     VkRenderPass renderPass = {};
     VkDescriptorPool descriptorPool = {};

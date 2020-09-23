@@ -144,6 +144,18 @@ private:
 
     bool isDeviceSuitable(VkPhysicalDevice device);
 
+    void loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh);
+
+    void loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive);
+
+    void loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &primitive);
+
+    void loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive);
+
+    void loadNode(tinygltf::Model &mode, tinygltf::Node &node);
+
+    void loadScene();
+
     VkPhysicalDevice pickPhysicalDevice();
 
     void recreateSwapchain();
@@ -194,6 +206,8 @@ private:
 
     UserInterface ui;
 
+    Camera cam = {};
+
     bool framebufferResized = false;
 
     std::vector<const char*> requiredExtensions;
@@ -206,14 +220,14 @@ private:
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-    const std::vector<Vertex> vertices = {
+    std::vector<Vertex> vertices = {
         Vertex { {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f} },
         Vertex { {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f} },
         Vertex { {0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f} },
         Vertex { {-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f} }
     };
 
-    const std::vector<uint32_t> vertIndices = { 0, 1, 2, 2, 3, 0 };
+    std::vector<uint32_t> vertIndices = {};
 
     QueueFamilyIndices queueIndices = {};
 

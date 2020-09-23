@@ -27,7 +27,11 @@ void UserInterface::draw() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::ShowDemoWindow();
+    if (ImGui::CollapsingHeader("Camera")) {
+        ImGui::Checkbox("Rotate Object", &options.rotate);
+    }
+
+    //ImGui::ShowDemoWindow();
 
     ImGui::Render();
 }

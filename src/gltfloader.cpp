@@ -11,13 +11,21 @@ tinygltf::Model GLTFLoader::load(const std::string &filePath) {
     std::string error;
     std::string warn;
 
-    if (!loader.LoadASCIIFromFile(&model, &error, &warn, filePath)) {
-        std::cout << error << std::endl;
-        throw std::runtime_error("Unable to parse GLTF!");
+    auto extension = tinygltf::GetFilePathExtension(filePath);
+    bool loaded;
+    if (extension == "glb") {
+        loaded = loader.LoadBinaryFromFile(&model, &error, &warn, filePath);
+    } else {
+        loaded = loader.LoadASCIIFromFile(&model, &error, &warn, filePath);
     }
 
     if (!warn.empty()) {
         std::cout << "Warning: " << warn << std::endl;
+    }
+
+    if (!loaded) {
+        std::cout << "Error: " << error << std::endl;
+        throw std::runtime_error("Unable to load glTF file!");
     }
 
     return model;

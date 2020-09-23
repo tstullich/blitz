@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 Renderer::Renderer() {
+    loadScene();
     initWindow();
     initVulkan();
     initUI();
@@ -606,7 +607,7 @@ UserInterface::UIContext Renderer::createUIContext() {
 }
 
 void Renderer::createUniformBuffers() {
-    Camera cam{};
+    Camera cam = {};
     uniformBuffers.resize(swapchain.getImagesSize());
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
         uniformBuffers[i].create(createBufferContext(), cam);
@@ -804,6 +805,119 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     }
 }
 
+void Renderer::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh) {
+    // TODO Break this up in the future for meshes with multiple vertex attributes
+    for (auto primitive : mesh.primitives) {
+        loadVertexAttributes(model, mesh, primitive);
+        if (primitive.indices >= 0) {
+            // Mesh supports indexing. Load the indices
+            loadMeshIndices(model, primitive);
+        }
+
+        if (primitive.material >= 0) {
+            loadMeshMaterial(model, primitive);
+        }
+    }
+}
+
+void Renderer::loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &primitive) {
+    auto indicesAccessor = model.accessors[primitive.indices];
+    auto bufferView = model.bufferViews[indicesAccessor.bufferView];
+    auto buffer = model.buffers[bufferView.buffer];
+    auto bufferOffset = bufferView.byteOffset;
+    auto offset = indicesAccessor.byteOffset / sizeof(float);
+    if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+        auto indicesBytes = reinterpret_cast<unsigned short*>(buffer.data.data() + bufferOffset);
+        auto bufferStart = indicesBytes + offset;
+        auto bufferEnd = indicesBytes + bufferView.byteLength / sizeof(float);
+        std::vector<uint32_t> indices(indicesBytes, indicesBytes + bufferView.byteLength / sizeof(unsigned short));
+        vertIndices.insert(vertIndices.end(), indices.begin(), indices.end());
+    } else {
+        auto indicesBytes = reinterpret_cast<unsigned int*>(buffer.data.data() + bufferOffset);
+        auto bufferStart = indicesBytes + offset;
+        auto bufferEnd = indicesBytes + bufferView.byteLength / sizeof(float);
+        std::vector<uint32_t> indices(indicesBytes, indicesBytes + bufferView.byteLength / sizeof(unsigned int));
+        vertIndices.insert(vertIndices.end(), indices.begin(), indices.end());
+    }
+}
+
+void Renderer::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive) {
+    // TODO Expand the logic here later to properly handle PBR-related things
+    auto material = model.materials[primitive.material];
+    for (auto &vertex : vertices) {
+        vertex.color[0] = material.pbrMetallicRoughness.baseColorFactor[0];
+        vertex.color[1] = material.pbrMetallicRoughness.baseColorFactor[1];
+        vertex.color[2] = material.pbrMetallicRoughness.baseColorFactor[2];
+    }
+}
+
+void Renderer::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive) {
+    auto positionIndex = primitive.attributes.find("POSITION")->second;
+    auto normalIndex = primitive.attributes.find("NORMAL")->second;
+    auto textureIndex = primitive.attributes.find("TEXCOORD_0")->second;
+
+    if (positionIndex >= 0) {
+        auto positionAccessor = model.accessors[positionIndex];
+        auto bufferView = model.bufferViews[positionAccessor.bufferView];
+        auto buffer = model.buffers[bufferView.buffer];
+        // Kinda hacky way of initializing the vertices buffer since we are assuming
+        // the POSITION attribute is always present (although that seems quite reasonable).
+        vertices.resize(positionAccessor.count);
+
+        // Calculate the necessary offsets for the position of the vertices out of the buffer
+        auto positionBytes = reinterpret_cast<float *>(buffer.data.data() + bufferView.byteOffset);
+        auto componentOffset = positionAccessor.byteOffset / sizeof(float);
+        auto bufferStart = positionBytes + componentOffset;
+        auto bufferEnd = positionBytes + bufferView.byteLength / sizeof(float);
+        std::vector<float> positions(bufferStart, bufferEnd);
+        for (size_t i = 0; i < positionAccessor.count; ++i) {
+            vertices[i].position[0] = positions[i * 3];
+            vertices[i].position[1] = positions[i * 3 + 1];
+            vertices[i].position[2] = positions[i * 3 + 2];
+        }
+    }
+
+    if (normalIndex >= 0) {
+        auto normalAccessor = model.accessors[normalIndex];
+        auto bufferView = model.bufferViews[normalAccessor.bufferView];
+        auto buffer = model.buffers[bufferView.buffer];
+        // Kinda hacky way of initializing the vertices buffer since we are assuming
+        // the POSITION attribute is always present (although that seems quite reasonable).
+        vertices.resize(normalAccessor.count);
+
+        // Calculate the necessary offsets for the vertex normals out of the buffer
+        auto positionBytes = reinterpret_cast<float *>(buffer.data.data() + bufferView.byteOffset);
+        auto componentOffset = normalAccessor.byteOffset / sizeof(float);
+        auto bufferStart = positionBytes + componentOffset;
+        auto bufferEnd = positionBytes + bufferView.byteLength / sizeof(float);
+        std::vector<float> normals(bufferStart, bufferEnd);
+        for (size_t i = 0; i < normalAccessor.count; ++i) {
+            vertices[i].normal[0] = normals[i * 3];
+            vertices[i].normal[1] = normals[i * 3 + 1];
+            vertices[i].normal[2] = normals[i * 3 + 2];
+        }
+    }
+}
+
+void Renderer::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
+    if (node.mesh >= 0 && node.mesh < model.meshes.size()) {
+        loadMesh(model, model.meshes[node.mesh]);
+    }
+
+    // Parse child nodes
+    for (int i : node.children) {
+        loadNode(model, model.nodes[i]);
+    }
+}
+
+void Renderer::loadScene() {
+    auto model = GLTFLoader::load("models/box-textured/BoxTextured.gltf");
+    auto scene = model.scenes[model.defaultScene];
+    for (int nodeId : scene.nodes) {
+        loadNode(model, model.nodes[nodeId]);
+    }
+}
+
 VkPhysicalDevice Renderer::pickPhysicalDevice() {
     uint32_t physicalDeviceCount = 0;
     if (vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
@@ -903,9 +1017,11 @@ void Renderer::updateUniformBuffer(size_t bufferIdx) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    Camera cam{};
     auto extent = swapchain.getExtent();
-    cam.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    auto options = ui.getOptions();
+    if (options.rotate) {
+        cam.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    }
     cam.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     cam.proj = glm::perspective(glm::radians(45.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
     cam.proj[1][1] *= -1;
