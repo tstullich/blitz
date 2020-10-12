@@ -70,7 +70,7 @@ void UserInterface::init(const UIContext &ctx) {
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-VkCommandBuffer UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) {
+VkCommandBuffer UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) const {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -90,7 +90,6 @@ VkCommandBuffer UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) {
 
     return commandBuffer;
 }
-
 
 void UserInterface::createCommandBuffers() {
     commandBuffers.resize(context.imageCount);
@@ -218,7 +217,7 @@ void UserInterface::createRenderPass() {
 void UserInterface::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const {
     vkEndCommandBuffer(commandBuffer);
 
-    VkSubmitInfo submitInfo{};
+    VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
@@ -228,7 +227,6 @@ void UserInterface::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkComma
 
     vkFreeCommandBuffers(context.logicalDevice, cmdPool, 1, &commandBuffer);
 }
-
 
 VkCommandBuffer UserInterface::recordCommands(uint32_t bufferIdx, VkExtent2D swapchainExtent) {
     VkCommandBufferBeginInfo cmdBufferBegin = {};

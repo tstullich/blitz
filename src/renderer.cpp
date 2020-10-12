@@ -829,14 +829,14 @@ void Renderer::loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &prim
     if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
         auto indicesBytes = reinterpret_cast<unsigned short*>(buffer.data.data() + bufferOffset);
         auto bufferStart = indicesBytes + offset;
-        auto bufferEnd = indicesBytes + bufferView.byteLength / sizeof(float);
-        std::vector<uint32_t> indices(indicesBytes, indicesBytes + bufferView.byteLength / sizeof(unsigned short));
+        auto bufferEnd = indicesBytes + bufferView.byteLength / sizeof(unsigned short);
+        std::vector<uint32_t> indices(bufferStart, bufferEnd);
         vertIndices.insert(vertIndices.end(), indices.begin(), indices.end());
     } else {
         auto indicesBytes = reinterpret_cast<unsigned int*>(buffer.data.data() + bufferOffset);
         auto bufferStart = indicesBytes + offset;
-        auto bufferEnd = indicesBytes + bufferView.byteLength / sizeof(float);
-        std::vector<uint32_t> indices(indicesBytes, indicesBytes + bufferView.byteLength / sizeof(unsigned int));
+        auto bufferEnd = indicesBytes + bufferView.byteLength / sizeof(unsigned int);
+        std::vector<uint32_t> indices(bufferStart, bufferEnd);
         vertIndices.insert(vertIndices.end(), indices.begin(), indices.end());
     }
 }
@@ -844,17 +844,15 @@ void Renderer::loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &prim
 void Renderer::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive) {
     // TODO Expand the logic here later to properly handle PBR-related things
     auto material = model.materials[primitive.material];
-    for (auto &vertex : vertices) {
-        vertex.color[0] = material.pbrMetallicRoughness.baseColorFactor[0];
-        vertex.color[1] = material.pbrMetallicRoughness.baseColorFactor[1];
-        vertex.color[2] = material.pbrMetallicRoughness.baseColorFactor[2];
+    if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
+        auto texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
     }
 }
 
 void Renderer::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive) {
     auto positionIndex = primitive.attributes.find("POSITION")->second;
     auto normalIndex = primitive.attributes.find("NORMAL")->second;
-    auto textureIndex = primitive.attributes.find("TEXCOORD_0")->second;
+    auto uvIndex = primitive.attributes.find("TEXCOORD_O")->second;
 
     if (positionIndex >= 0) {
         auto positionAccessor = model.accessors[positionIndex];
@@ -895,6 +893,26 @@ void Renderer::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh
             vertices[i].normal[0] = normals[i * 3];
             vertices[i].normal[1] = normals[i * 3 + 1];
             vertices[i].normal[2] = normals[i * 3 + 2];
+        }
+    }
+
+    if (uvIndex >= 0) {
+        auto uvAccessor = model.accessors[normalIndex];
+        auto bufferView = model.bufferViews[uvAccessor.bufferView];
+        auto buffer = model.buffers[bufferView.buffer];
+        // Kinda hacky way of initializing the vertices buffer since we are assuming
+        // the POSITION attribute is always present (although that seems quite reasonable).
+        vertices.resize(uvAccessor.count);
+
+        // Calculate the necessary offsets for the vertex normals out of the buffer
+        auto positionBytes = reinterpret_cast<float *>(buffer.data.data() + bufferView.byteOffset);
+        auto componentOffset = uvAccessor.byteOffset / sizeof(float);
+        auto bufferStart = positionBytes + componentOffset;
+        auto bufferEnd = positionBytes + bufferView.byteLength / sizeof(float);
+        std::vector<float> uVs(bufferStart, bufferEnd);
+        for (size_t i = 0; i < uvAccessor.count; ++i) {
+            vertices[i].uv[0] = uVs[i * 2];
+            vertices[i].uv[1] = uVs[i * 2 + 1];
         }
     }
 }

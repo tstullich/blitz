@@ -46,7 +46,7 @@ public:
     void recreate(const UIContext &ctx);
 
 private:
-    VkCommandBuffer beginSingleTimeCommands(VkCommandPool cmdPool);
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool cmdPool) const;
 
     void cleanupResources();
 

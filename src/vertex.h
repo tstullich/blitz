@@ -8,8 +8,8 @@
 struct Vertex {
     // Just have the position + color for now. Will expand to more attributes later
     glm::vec3 position;
-    glm::vec3 color;
     glm::vec3 normal;
+    glm::vec2 uv;
 
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription description = {};
@@ -32,12 +32,12 @@ struct Vertex {
         descriptions[1].binding = 0;
         descriptions[1].location = 1;
         descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        descriptions[1].offset = offsetof(Vertex, color);
+        descriptions[1].offset = offsetof(Vertex, normal);
 
         descriptions[2].binding = 0;
         descriptions[2].location = 2;
-        descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-        descriptions[2].offset = offsetof(Vertex, normal);
+        descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        descriptions[2].offset = offsetof(Vertex, uv);
 
         return descriptions;
     }
