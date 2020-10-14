@@ -6,11 +6,13 @@ starring this repository or on on the blog of my [website](https://tstullich.git
 ## Screenshot(s)
 ![An image of a quad being rendered through vertex indices](https://i.imgur.com/aqgoO4Q.png)
 
+![An image of a cube rendered with a texture](https://i.imgur.com/5OazHcA.png)
+
 ## Features
 - [x] Indexed draw mode
+- [x] Texture support
 
-## Future Work
-- [ ] Texture support 
+## Future Work 
 - [ ] Multisampled anti-aliasing 
 - [ ] GLTF scene loading 
 - [ ] Physically-based lighting
