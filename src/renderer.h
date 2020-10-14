@@ -18,6 +18,7 @@
 
 #include "buffer.h"
 #include "gltfloader.h"
+#include "texture.h"
 #include "shaderloader.h"
 #include "swapchain.h"
 #include "ui.h"
@@ -86,11 +87,15 @@ private:
         createInfo.pfnUserCallback = debugCallback;
     }
 
+    VkCommandBuffer beginSingleTimeCommands();
+
     bool checkDeviceExtensions(VkPhysicalDevice device);
 
     bool checkValidationLayerSupport();
 
     void cleanupSwapchain();
+
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
     Buffer::BufferContext createBufferContext();
 
@@ -105,6 +110,8 @@ private:
     void createDescriptorSets();
 
     void createGraphicsPipeline();
+
+    VkImageView createImageView(VkImage image, VkFormat format);
 
     void createIndexBuffer();
 
@@ -124,6 +131,12 @@ private:
 
     void createSyncObjects();
 
+    void createTextureImage();
+
+    void createTextureImageView();
+
+    void createTextureSampler();
+
     UserInterface::UIContext createUIContext();
 
     void createUniformBuffers();
@@ -131,6 +144,8 @@ private:
     void createVertexBuffer();
 
     void drawFrame();
+
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
     void getDeviceQueueIndices();
 
@@ -162,6 +177,8 @@ private:
 
     void setupDebugMessenger();
 
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+
     void updateUniformBuffer(size_t bufferIdx);
 
     uint32_t windowWidth = 1920;
@@ -182,6 +199,12 @@ private:
     IndexBuffer vertIndexBuffer;
 
     std::vector<UniformBuffer> uniformBuffers;
+
+    Texture texture;
+    tinygltf::Image textureImage;
+    tinygltf::Sampler sampler;
+    VkImageView textureView;
+    VkSampler textureSampler;
 
     VkRenderPass renderPass = {};
 

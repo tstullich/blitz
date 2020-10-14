@@ -5,6 +5,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "tiny_gltf.h"
+
 #include "camera.h"
 #include "vertex.h"
 
@@ -29,8 +31,8 @@ public:
 protected:
     static void copyBuffer(const BufferContext &ctx, VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
-    static void init(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
-              VkMemoryPropertyFlags properties, VkBuffer &buf, VkDeviceMemory &devMem);
+    static void allocateMemory(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
+                               VkMemoryPropertyFlags properties, VkBuffer &buf, VkDeviceMemory &devMem);
 
     static uint32_t pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
                                    VkMemoryPropertyFlags properties);
@@ -58,4 +60,11 @@ public:
     UniformBuffer() = default;
 
     void create(const BufferContext &ctx, const Camera &camera);
+};
+
+class TextureBuffer : public Buffer {
+public:
+    TextureBuffer() = default;
+
+    void create(const BufferContext &ctx, const tinygltf::Image &textureImage);
 };

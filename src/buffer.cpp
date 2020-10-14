@@ -48,8 +48,8 @@ void Buffer::cleanup(VkDevice logicalDevice) {
     vkFreeMemory(logicalDevice, deviceMemory, nullptr);
 }
 
-void Buffer::init(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
-                  VkMemoryPropertyFlags properties, VkBuffer &buf, VkDeviceMemory &devMem) {
+void Buffer::allocateMemory(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
+                            VkMemoryPropertyFlags properties, VkBuffer &buf, VkDeviceMemory &devMem) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -64,7 +64,7 @@ void Buffer::init(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlag
     vkGetBufferMemoryRequirements(ctx.logicalDevice, buf, &memRequirements);
 
     // Allocate memory on the GPU. The type of memory also needs to be visible for the host
-    // so we search for HOST_VISIBLE and HOST_COHERENT memory types
+    // so we search for the properties passed in from the caller
     VkMemoryAllocateInfo allocateInfo = {};
     allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocateInfo.allocationSize = memRequirements.size;
@@ -73,7 +73,6 @@ void Buffer::init(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlag
         throw std::runtime_error("Unable to allocate device memory!");
     }
 
-    // Bind the allocated memory to the vertex buffer
     vkBindBufferMemory(ctx.logicalDevice, buf, devMem, 0);
 }
 
@@ -90,14 +89,13 @@ uint32_t Buffer::pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFi
     throw std::runtime_error("Unable to find proper memory type on the GPU!");
 }
 
-
 void VertexBuffer::create(const BufferContext &ctx, const std::vector<Vertex> &vertices) {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     // We use a staging buffer to transfer the host buffer data to the GPU
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
-    init(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMemory);
 
     void *data;
@@ -105,8 +103,8 @@ void VertexBuffer::create(const BufferContext &ctx, const std::vector<Vertex> &v
     memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
     vkUnmapMemory(ctx.logicalDevice, stagingMemory);
 
-    init(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-         VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, buffer, deviceMemory);
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, deviceMemory);
 
     // Copy the data into GPU memory
     copyBuffer(ctx, stagingBuffer, buffer, bufferSize);
@@ -121,7 +119,7 @@ void IndexBuffer::create(const BufferContext &ctx, const std::vector<uint32_t> &
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
-    init(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingMemory);
 
     void *data;
@@ -129,8 +127,8 @@ void IndexBuffer::create(const BufferContext &ctx, const std::vector<uint32_t> &
     memcpy(data, vertIndices.data(), static_cast<size_t>(bufferSize));
     vkUnmapMemory(ctx.logicalDevice, stagingMemory);
 
-    init(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, deviceMemory);
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, deviceMemory);
 
     copyBuffer(ctx, stagingBuffer, buffer, bufferSize);
 
@@ -142,6 +140,18 @@ void IndexBuffer::create(const BufferContext &ctx, const std::vector<uint32_t> &
 void UniformBuffer::create(const BufferContext &ctx, const Camera &camera) {
     VkDeviceSize bufferSize = sizeof(Camera);
 
-    init(ctx, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, deviceMemory);
+}
+
+void TextureBuffer::create(const Buffer::BufferContext &ctx, const tinygltf::Image &textureImage) {
+    VkDeviceSize bufferSize = textureImage.image.size();
+
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, deviceMemory);
+
+    void* data;
+    vkMapMemory(ctx.logicalDevice, deviceMemory, 0, bufferSize, 0, &data);
+    memcpy(data, textureImage.image.data(), static_cast<size_t>(bufferSize));
+    vkUnmapMemory(ctx.logicalDevice, deviceMemory);
 }

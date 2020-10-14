@@ -9,11 +9,13 @@ layout(binding = 0) uniform Camera {
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec2 inUv;
+layout(location = 2) in vec2 inTexCoord;
 
 layout(location = 0) out vec3 fragColor;
+layout(location = 1) out vec2 fragTexCoord;
 
 void main() {
     gl_Position = cam.projection * cam.view * cam.model * vec4(inPosition, 1.0f);
     fragColor = inNormal;
+    fragTexCoord = inTexCoord;
 }

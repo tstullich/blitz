@@ -10,7 +10,9 @@ SET(SRCS main.cpp
         gltfloader.cpp
         buffer.cpp
         buffer.h
-        camera.h)
+        camera.h
+        texture.h
+        texture.cpp)
 
 add_executable(renderer ${SRCS})
 
