@@ -5,22 +5,22 @@
 #include "tiny_gltf.h"
 
 #include "buffer.h"
+#include "image.h"
 
 class Texture {
 public:
     Texture() = default;
 
-    Texture(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, const tinygltf::Image &image);
+    Texture(VkDevice logicalDevice, const tinygltf::Image &image);
+
+    void bind(VkDevice logicalDevice, uint32_t memoryTypeIndex);
 
     void cleanup(VkDevice logicalDevice);
 
-    inline VkImage getImage() const { return textureImage; }
+    inline VkImage getImage() const { return textureImage.getImage(); }
+
+    inline VkImageView getImageView() const { return textureImage.getView(); }
 
 private:
-    VkImage textureImage = {};
-    VkDeviceMemory textureMemory = {};
-
-    void allocateMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, const tinygltf::Image &image);
-
-    uint32_t pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    Image textureImage = {};
 };

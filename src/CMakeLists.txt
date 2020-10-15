@@ -12,7 +12,9 @@ SET(SRCS main.cpp
         buffer.h
         camera.h
         texture.h
-        texture.cpp)
+        texture.cpp
+        image.h
+        image.cpp)
 
 add_executable(renderer ${SRCS})
 

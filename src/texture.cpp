@@ -1,10 +1,6 @@
 #include "texture.h"
 
-Texture::Texture(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, const tinygltf::Image &image) {
-    allocateMemory(physicalDevice, logicalDevice, image);
-}
-
-void Texture::allocateMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, const tinygltf::Image &image) {
+Texture::Texture(VkDevice logicalDevice, const tinygltf::Image &image) {
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -20,39 +16,13 @@ void Texture::allocateMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDe
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &textureImage) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create image!");
-    }
+    textureImage = Image(logicalDevice, imageInfo);
+}
 
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(logicalDevice, textureImage, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = pickMemoryType(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &textureMemory) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to allocate image memory!");
-    }
-
-    vkBindImageMemory(logicalDevice, textureImage, textureMemory, 0);
+void Texture::bind(VkDevice logicalDevice, uint32_t memoryTypeIndex) {
+    textureImage.bindImage(logicalDevice, memoryTypeIndex);
 }
 
 void Texture::cleanup(VkDevice logicalDevice) {
-    vkDestroyImage(logicalDevice, textureImage, nullptr);
-    vkFreeMemory(logicalDevice, textureMemory, nullptr);
-}
-
-uint32_t Texture::pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
-        if (typeFilter & (1u << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    throw std::runtime_error("Unable to find proper memory type on the GPU!");
+    textureImage.cleanup(logicalDevice);
 }

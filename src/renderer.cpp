@@ -42,7 +42,6 @@ Renderer::~Renderer() {
     swapchain.cleanup();
 
     vkDestroySampler(logicalDevice, textureSampler, nullptr);
-    vkDestroyImageView(logicalDevice, textureView, nullptr);
     texture.cleanup(logicalDevice);
 
     vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -225,6 +224,12 @@ void Renderer::createCommandPool() {
     }
 }
 
+void Renderer::createDepthResources() {
+    auto depthFormat = pickDepthFormat();
+    /// TODO Continue here tomorrow
+    //adadad
+}
+
 // TODO Check if this is used by Dear IMGUI and how to move it
 void Renderer::createDescriptorPool() {
     VkDescriptorPoolSize uboPoolSize = {};
@@ -295,7 +300,7 @@ void Renderer::createDescriptorSets() {
 
         VkDescriptorImageInfo imageInfo = {};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = textureView;
+        imageInfo.imageView = texture.getImageView();
         imageInfo.sampler = textureSampler;
 
         std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
@@ -464,24 +469,41 @@ void Renderer::createGraphicsPipeline() {
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
 }
 
-VkImageView Renderer::createImageView(VkImage image, VkFormat format) {
-    VkImageViewCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    createInfo.image = image;
-    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    createInfo.format = format;
-    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    createInfo.subresourceRange.baseArrayLayer = 0;
-    createInfo.subresourceRange.layerCount = 1;
-    createInfo.subresourceRange.baseMipLevel = 0;
-    createInfo.subresourceRange.levelCount = 1;
+void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+                           VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
+                           VkDeviceMemory &imageMemory) {
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkImageView imageView;
-    if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create a texture image view!");
+    if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
     }
 
-    return imageView;
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = pickMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 }
 
 void Renderer::createIndexBuffer() {
@@ -688,13 +710,22 @@ void Renderer::createSyncObjects() {
 
 // TODO Look into recording a buffer that uploads all texture asynchronously
 void Renderer::createTextureImage() {
-    // Allocate a staging buffer
+    // Allocate a host-side staging buffer
     auto ctx = createBufferContext();
     auto stagingBuffer = TextureBuffer();
     stagingBuffer.create(ctx, textureImage);
 
     // Allocate GPU texture memory
-    texture = Texture(physicalDevice, logicalDevice, textureImage);
+    texture = Texture(logicalDevice, textureImage);
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, texture.getImage(), &memRequirements);
+
+    // Search for correct GPU memory
+    auto memoryType = pickMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    // Bind texture to GPU memory
+    texture.bind(logicalDevice, memoryType);
 
     // Record and execute commands to copy the image texture into memory
     transitionImageLayout(texture.getImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
@@ -706,10 +737,6 @@ void Renderer::createTextureImage() {
 
     // Cleanup staging buffer
     stagingBuffer.cleanup(logicalDevice);
-}
-
-void Renderer::createTextureImageView() {
-    textureView = createImageView(texture.getImage(), VK_FORMAT_R8G8B8A8_SRGB);
 }
 
 void Renderer::createTextureSampler() {
@@ -911,8 +938,8 @@ void Renderer::initVulkan() {
     createGraphicsPipeline();
     swapchain.initFramebuffers(renderPass);
     createCommandPool();
+    createDepthResources();
     createTextureImage();
-    createTextureImageView();
     createTextureSampler();
     createVertexBuffer();
     createIndexBuffer();
@@ -1096,6 +1123,27 @@ void Renderer::loadScene() {
     }
 }
 
+VkFormat Renderer::pickDepthFormat() {
+    return pickSupportedFormat(
+            {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    );
+}
+
+uint32_t Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
+        if (typeFilter & (1u << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("Unable to find proper memory type on the GPU!");
+}
+
 VkPhysicalDevice Renderer::pickPhysicalDevice() {
     uint32_t physicalDeviceCount = 0;
     if (vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
@@ -1129,6 +1177,20 @@ VkPhysicalDevice Renderer::pickPhysicalDevice() {
 
     std::cout << "Using fallback physical device: " << properties.deviceName << std::endl;
     return physicalDevices[0];
+}
+
+VkFormat Renderer::pickSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                                       VkFormatFeatureFlags features) {
+    for (const auto& format : candidates) {
+        VkFormatProperties properties;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &properties);
+        if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features) {
+            return format;
+        } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+    throw std::runtime_error("Unable to find supported format for depth image!");
 }
 
 // In case the swapchain is invalidated, i.e. during window resizing,

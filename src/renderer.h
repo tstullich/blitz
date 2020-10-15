@@ -13,6 +13,7 @@
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -103,6 +104,8 @@ private:
 
     void createCommandPool();
 
+    void createDepthResources();
+
     void createDescriptorPool();
 
     void createDescriptorSetLayout();
@@ -110,6 +113,10 @@ private:
     void createDescriptorSets();
 
     void createGraphicsPipeline();
+
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+                     VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
+                     VkDeviceMemory& imageMemory);
 
     VkImageView createImageView(VkImage image, VkFormat format);
 
@@ -151,6 +158,10 @@ private:
 
     std::vector<const char*> getRequiredExtensions() const;
 
+    inline bool hasStencilComponents(VkFormat format) {
+            return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    }
+
     void initUI();
 
     void initVulkan();
@@ -171,7 +182,13 @@ private:
 
     void loadScene();
 
+    VkFormat pickDepthFormat();
+
+    uint32_t pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
     VkPhysicalDevice pickPhysicalDevice();
+
+    VkFormat pickSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
     void recreateSwapchain();
 
@@ -203,8 +220,12 @@ private:
     Texture texture;
     tinygltf::Image textureImage;
     tinygltf::Sampler sampler;
-    VkImageView textureView;
+    //VkImageView textureView;
     VkSampler textureSampler;
+
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
 
     VkRenderPass renderPass = {};
 
