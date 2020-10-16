@@ -9,13 +9,13 @@ starring this repository or on on the blog of my [website](https://tstullich.git
 - [x] Texture support
 - [x] Depth stencil testing
 
-## Screenshot(s)
-![An image of a quad being rendered through vertex indices](https://i.imgur.com/aqgoO4Q.png)
-
-![An image of a cube rendered with a texture](https://i.imgur.com/5OazHcA.png)
-
 ## Future Work 
 - [ ] Multisampled anti-aliasing 
 - [ ] GLTF scene loading
 - [ ] Physically-based lighting
 - [ ] Deferred shading
+
+## Screenshot(s)
+![An image of a quad being rendered through vertex indices](https://i.imgur.com/aqgoO4Q.png)
+
+![An image of a cube rendered with a texture](https://i.imgur.com/5OazHcA.png)
