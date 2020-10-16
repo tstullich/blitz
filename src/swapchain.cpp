@@ -22,17 +22,18 @@ void Swapchain::init(const SwapchainContext &context) {
     createImageViews();
 }
 
-void Swapchain::initFramebuffers(const VkRenderPass &renderPass) {
+void Swapchain::initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView) {
     swapchainFramebuffers.resize(swapchainImageViews.size());
     for (size_t i = 0; i < swapchainImageViews.size(); ++i) {
         // We need to attach an image view to the frame buffer for presentation purposes
-        VkImageView attachments[] = {swapchainImageViews[i]};
+        // as well as a view for the depth stencil
+        std::array<VkImageView, 2> attachments = { swapchainImageViews[i], depthImageView };
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
         framebufferInfo.width = swapchainExtent.width;
         framebufferInfo.height = swapchainExtent.height;
         framebufferInfo.layers = 1;

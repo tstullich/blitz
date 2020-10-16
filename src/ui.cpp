@@ -16,6 +16,7 @@ void UserInterface::cleanup() {
 
     cleanupResources();
 
+    // TODO Investigate issue where resizing window leaks descriptor pool resources
     vkDestroyDescriptorPool(context.logicalDevice, descriptorPool, nullptr);
     vkDestroyCommandPool(context.logicalDevice, commandPool, nullptr);
     vkDestroyRenderPass(context.logicalDevice, renderPass, nullptr);

@@ -4,7 +4,7 @@ Image::Image(VkDevice logicalDevice, const VkImageCreateInfo &imageInfo) {
     createImage(logicalDevice, imageInfo);
 }
 
-void Image::bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex) {
+void Image::bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex, VkImageAspectFlagBits aspectFlags) {
     VkMemoryRequirements memRequirements;
     vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
 
@@ -20,7 +20,7 @@ void Image::bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex) {
     vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 
     // Create an image view after the image has been bound to GPU memory
-    createImageView(logicalDevice);
+    createImageView(logicalDevice, aspectFlags);
 }
 
 void Image::cleanup(VkDevice logicalDevice) {
@@ -38,13 +38,13 @@ void Image::createImage(VkDevice logicalDevice, const VkImageCreateInfo &imageCr
     }
 }
 
-void Image::createImageView(VkDevice logicalDevice) {
+void Image::createImageView(VkDevice logicalDevice, VkImageAspectFlagBits aspectFlags) {
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.aspectMask = aspectFlags;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
     viewInfo.subresourceRange.baseMipLevel = 0;

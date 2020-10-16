@@ -20,7 +20,7 @@ Texture::Texture(VkDevice logicalDevice, const tinygltf::Image &image) {
 }
 
 void Texture::bind(VkDevice logicalDevice, uint32_t memoryTypeIndex) {
-    textureImage.bindImage(logicalDevice, memoryTypeIndex);
+    textureImage.bindImage(logicalDevice, memoryTypeIndex, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Texture::cleanup(VkDevice logicalDevice) {

@@ -10,7 +10,7 @@ public:
 
     Image(VkDevice logicalDevice, const VkImageCreateInfo &imageCreateInfo);
 
-    void bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex);
+    void bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex, VkImageAspectFlagBits aspectFlags);
 
     void cleanup(VkDevice logicalDevice);
 
@@ -23,7 +23,7 @@ public:
 private:
     void createImage(VkDevice logicalDevice, const VkImageCreateInfo &imageCreateInfo);
 
-    void createImageView(VkDevice logicalDevice);
+    void createImageView(VkDevice logicalDevice, VkImageAspectFlagBits aspectFlags);
 
     VkImage image = {};
     VkImageView imageView = {};

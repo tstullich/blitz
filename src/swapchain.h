@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <stdexcept>
 #include <vector>
 
@@ -30,7 +31,7 @@ public:
 
     void init(const SwapchainContext &context);
 
-    void initFramebuffers(const VkRenderPass &renderPass);
+    void initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView);
 
     inline size_t getFramebufferSize() const { return swapchainFramebuffers.size(); }
 

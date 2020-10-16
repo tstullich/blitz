@@ -158,7 +158,7 @@ private:
 
     std::vector<const char*> getRequiredExtensions() const;
 
-    inline bool hasStencilComponents(VkFormat format) {
+    inline bool hasStencilComponent(VkFormat format) {
             return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
@@ -220,12 +220,9 @@ private:
     Texture texture;
     tinygltf::Image textureImage;
     tinygltf::Sampler sampler;
-    //VkImageView textureView;
     VkSampler textureSampler;
 
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
+    Image depthImage;
 
     VkRenderPass renderPass = {};
 
