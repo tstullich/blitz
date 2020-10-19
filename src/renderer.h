@@ -140,8 +140,6 @@ private:
 
     void createTextureImage();
 
-    void createTextureImageView();
-
     void createTextureSampler();
 
     UserInterface::UIContext createUIContext();
@@ -153,6 +151,8 @@ private:
     void drawFrame();
 
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    void generateMipMaps(const Texture &texture);
 
     void getDeviceQueueIndices();
 
@@ -188,13 +188,14 @@ private:
 
     VkPhysicalDevice pickPhysicalDevice();
 
-    VkFormat pickSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    VkFormat pickSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                                 VkFormatFeatureFlags features);
 
     void recreateSwapchain();
 
     void setupDebugMessenger();
 
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void transitionImageLayout(const Image &image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
     void updateUniformBuffer(size_t bufferIdx);
 

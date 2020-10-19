@@ -32,7 +32,7 @@ void UserInterface::draw() {
         ImGui::Checkbox("Rotate Object", &options.rotate);
     }
 
-    //ImGui::ShowDemoWindow();
+    ImGui::ShowDemoWindow();
 
     ImGui::Render();
 }

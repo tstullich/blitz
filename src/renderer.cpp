@@ -189,7 +189,7 @@ void Renderer::createCommandBuffers() {
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = renderPass;
         renderPassInfo.framebuffer = swapchain.getFramebuffer(i);
-        renderPassInfo.renderArea.offset = {0, 0};
+        renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapchain.getExtent();
 
         // Set the clear color value to black
@@ -256,8 +256,7 @@ void Renderer::createDepthResources() {
     auto memoryTypeIndex = pickMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     depthImage.bindImage(logicalDevice, memoryTypeIndex, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    transitionImageLayout(depthImage.getImage(), depthImage.getFormat(),
-                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    transitionImageLayout(depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 // TODO Check if this is used by Dear IMGUI and how to move it
@@ -773,11 +772,11 @@ void Renderer::createTextureImage() {
     auto stagingBuffer = TextureBuffer();
     stagingBuffer.create(ctx, textureImage);
 
-    // Allocate GPU texture memory
-    texture = Texture(logicalDevice, textureImage);
+    // Allocate GPU texture memory with mip mapping
+    texture = Texture(logicalDevice, textureImage, true);
 
     VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(logicalDevice, texture.getImage(), &memRequirements);
+    vkGetImageMemoryRequirements(logicalDevice, texture.getTexImage().getImage(), &memRequirements);
 
     // Search for correct GPU memory
     auto memoryType = pickMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -786,15 +785,16 @@ void Renderer::createTextureImage() {
     texture.bind(logicalDevice, memoryType);
 
     // Record and execute commands to copy the image texture into memory
-    transitionImageLayout(texture.getImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(stagingBuffer.getBuffer(), texture.getImage(), static_cast<uint32_t>(textureImage.width),
+    transitionImageLayout(texture.getTexImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage(stagingBuffer.getBuffer(), texture.getTexImage().getImage(), static_cast<uint32_t>(textureImage.width),
                       static_cast<uint32_t>(textureImage.height));
-    transitionImageLayout(texture.getImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    //transitionImageLayout(texture.getTexImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // Cleanup staging buffer
     stagingBuffer.cleanup(logicalDevice);
+
+    // By default we generate mip maps for a texture
+    generateMipMaps(texture);
 }
 
 void Renderer::createTextureSampler() {
@@ -814,7 +814,7 @@ void Renderer::createTextureSampler() {
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
+    samplerInfo.maxLod = texture.getMipLevels();
 
     if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create texture sampler!");
@@ -936,6 +936,94 @@ void Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkQueueWaitIdle(graphicsQueue);
 
     vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+}
+
+void Renderer::generateMipMaps(const Texture &texture) {
+    // Check if the blit command is available on the physical device
+    VkFormatProperties properties;
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, texture.getTexImage().getFormat(), &properties);
+    if (!(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+        throw std::runtime_error("Texture image format does not support linear blitting!");
+    }
+
+    auto commandBuffer = beginSingleTimeCommands();
+
+    VkImageMemoryBarrier memBarrier = {};
+    memBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    memBarrier.image = texture.getTexImage().getImage();
+    memBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    memBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    memBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    memBarrier.subresourceRange.baseArrayLayer = 0;
+    memBarrier.subresourceRange.layerCount = 1;
+    memBarrier.subresourceRange.levelCount = 1;
+
+    int32_t mipWidth = texture.getWidth();
+    int32_t mipHeight = texture.getHeight();
+    for (uint32_t i = 1; i < texture.getMipLevels(); ++i) {
+        memBarrier.subresourceRange.baseMipLevel = i - 1;
+        memBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        memBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                             0, nullptr,
+                             0, nullptr,
+                             1, &memBarrier);
+
+        // Blit the individual mip levels into memory
+        VkImageBlit blit = {};
+        blit.srcOffsets[0] = { 0, 0, 0 };
+        blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = { 0, 0, 0 };
+        blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+
+        vkCmdBlitImage(commandBuffer,
+                       texture.getTexImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       texture.getTexImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &blit,
+                       VK_FILTER_LINEAR);
+
+        memBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        memBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        memBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                             0, nullptr,
+                             0, nullptr,
+                             1, &memBarrier);
+
+        // Check if the texture is square or not
+        mipWidth = mipWidth > 1 ? mipWidth / 2 : 1;
+        mipHeight = mipHeight > 1 ? mipHeight / 2 : 1;
+    }
+
+    // Put in a final barrier for transitioning
+    memBarrier.subresourceRange.baseMipLevel = texture.getMipLevels() - 1;
+    memBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    memBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    memBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                         0, nullptr,
+                         0, nullptr,
+                         1, &memBarrier);
+
+    endSingleTimeCommands(commandBuffer);
 }
 
 void Renderer::getDeviceQueueIndices() {
@@ -1310,7 +1398,7 @@ void Renderer::setupDebugMessenger() {
     }
 }
 
-void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void Renderer::transitionImageLayout(const Image &image, VkImageLayout oldLayout, VkImageLayout newLayout) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier = {};
@@ -1319,9 +1407,9 @@ void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayo
     barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
+    barrier.image = image.getImage();
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = image.getMipLevels();
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
@@ -1329,7 +1417,7 @@ void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayo
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-        if (hasStencilComponent(format)) {
+        if (hasStencilComponent(image.getFormat())) {
             barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
         }
     } else {
