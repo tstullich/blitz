@@ -6,11 +6,12 @@ starring this repository or on on the blog of my [website](https://tstullich.git
 
 ## Features
 - [x] Indexed draw mode
-- [x] Texture support
+- [x] Texture support w/ mip map creation at runtime
 - [x] Depth stencil testing
+- [x] Multisampled anti-aliasing
 
 ## Future Work 
-- [ ] Multisampled anti-aliasing 
+- [ ] UI improvements
 - [ ] GLTF scene loading
 - [ ] Physically-based lighting
 - [ ] Deferred shading
