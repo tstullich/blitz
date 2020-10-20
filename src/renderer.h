@@ -126,6 +126,8 @@ private:
 
     void createLogicalDevice();
 
+    void createMsaaResources();
+
     void createRenderPass();
 
     VkShaderModule createShaderModule(const std::vector<char> &shaderCode);
@@ -184,6 +186,8 @@ private:
 
     VkFormat pickDepthFormat();
 
+    VkSampleCountFlagBits pickMaxUsableSampleCount(VkPhysicalDevice device);
+
     uint32_t pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     VkPhysicalDevice pickPhysicalDevice();
@@ -213,6 +217,8 @@ private:
 
     VkSurfaceKHR surface = {};
 
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+
     VertexBuffer vertexBuffer;
     IndexBuffer vertIndexBuffer;
 
@@ -224,6 +230,7 @@ private:
     VkSampler textureSampler;
 
     Image depthImage;
+    Image msaaImage;
 
     VkRenderPass renderPass = {};
 

@@ -31,7 +31,7 @@ public:
 
     void init(const SwapchainContext &context);
 
-    void initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView);
+    void initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView, const VkImageView &msaaImageView);
 
     inline size_t getFramebufferSize() const { return swapchainFramebuffers.size(); }
 

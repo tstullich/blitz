@@ -44,6 +44,7 @@ Renderer::~Renderer() {
     vkDestroySampler(logicalDevice, textureSampler, nullptr);
     texture.cleanup(logicalDevice);
 
+    msaaImage.cleanup(logicalDevice);
     depthImage.cleanup(logicalDevice);
 
     vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -116,6 +117,7 @@ bool Renderer::checkValidationLayerSupport() {
 
 // Destroys all the resources associated with swapchain recreation
 void Renderer::cleanupSwapchain() {
+    msaaImage.cleanup(logicalDevice);
     depthImage.cleanup(logicalDevice);
 
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
@@ -246,7 +248,7 @@ void Renderer::createDepthResources() {
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.samples = msaaSamples;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     depthImage = Image(logicalDevice, imageInfo);
@@ -408,7 +410,7 @@ void Renderer::createGraphicsPipeline() {
     // Create a scissor. Any pixels outside the scissor region will be discarded
     VkRect2D scissor = {};
     scissor.extent = swapchainExtent;
-    scissor.offset = {0, 0};
+    scissor.offset = { 0, 0 };
 
     VkPipelineViewportStateCreateInfo viewPortCreateInfo = {};
     viewPortCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -434,9 +436,9 @@ void Renderer::createGraphicsPipeline() {
     // Configure multisampling
     VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = {};
     multisamplingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisamplingCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisamplingCreateInfo.sampleShadingEnable = VK_FALSE;
-    multisamplingCreateInfo.minSampleShading = 1.0f;
+    multisamplingCreateInfo.rasterizationSamples = msaaSamples;
+    multisamplingCreateInfo.sampleShadingEnable = VK_TRUE;
+    multisamplingCreateInfo.minSampleShading = 0.2f;
     multisamplingCreateInfo.pSampleMask = nullptr;
     multisamplingCreateInfo.alphaToCoverageEnable = VK_FALSE;
     multisamplingCreateInfo.alphaToOneEnable = VK_FALSE;
@@ -613,6 +615,7 @@ void Renderer::createLogicalDevice() {
 
     VkPhysicalDeviceFeatures physicalDeviceFeatures = {}; // TODO Specify features
     physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
+    physicalDeviceFeatures.sampleRateShading = VK_TRUE;
 
     deviceInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
@@ -633,21 +636,47 @@ void Renderer::createLogicalDevice() {
     vkGetDeviceQueue(logicalDevice, queueIndices.presentFamilyIndex, 0, &presentQueue);
 }
 
+void Renderer::createMsaaResources() {
+    auto extent = swapchain.getExtent();
+
+    VkImageCreateInfo imageCreateInfo = {};
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.format = swapchain.getImageFormat();
+    imageCreateInfo.extent.width = extent.width;
+    imageCreateInfo.extent.height = extent.height;
+    imageCreateInfo.extent.depth = 1;
+    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.samples = msaaSamples;
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    msaaImage = Image(logicalDevice, imageCreateInfo);
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, msaaImage.getImage(), &memRequirements);
+    auto memoryTypeIndex = pickMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    msaaImage.bindImage(logicalDevice, memoryTypeIndex, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
 void Renderer::createRenderPass() {
     // Configure a color attachment that will determine how the framebuffer is used
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapchain.getImageFormat();
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.samples = msaaSamples;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // Comes before UI rendering now
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription depthAttachment = {};
     depthAttachment.format = depthImage.getFormat();
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.samples = msaaSamples;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -655,7 +684,17 @@ void Renderer::createRenderPass() {
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+    VkAttachmentDescription colorResolveAttachment = {};
+    colorResolveAttachment.format = swapchain.getImageFormat();
+    colorResolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorResolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorResolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorResolveAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // Comes before UI rendering now
+
+    std::array<VkAttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorResolveAttachment };
 
     VkAttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
@@ -665,12 +704,17 @@ void Renderer::createRenderPass() {
     depthAttachmentRef.attachment = 1;
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentReference colorResolveAttachmentRef = {};
+    colorResolveAttachmentRef.attachment = 2;
+    colorResolveAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     // Define a subpass that is attached to the graphics pipeline
     VkSubpassDescription subpassDescription = {};
     subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpassDescription.colorAttachmentCount = 1;
     subpassDescription.pColorAttachments = &colorAttachmentRef;
     subpassDescription.pDepthStencilAttachment = &depthAttachmentRef;
+    subpassDescription.pResolveAttachments = &colorResolveAttachmentRef;
 
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -1080,11 +1124,12 @@ void Renderer::initVulkan() {
     createLogicalDevice();
     createCommandPool();
     createSwapchain();
+    createMsaaResources();
     createDepthResources();
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
-    swapchain.initFramebuffers(renderPass, depthImage.getView());
+    swapchain.initFramebuffers(renderPass, depthImage.getView(), msaaImage.getView());
     createTextureImage();
     createTextureSampler();
     createVertexBuffer();
@@ -1277,6 +1322,22 @@ VkFormat Renderer::pickDepthFormat() {
     );
 }
 
+VkSampleCountFlagBits Renderer::pickMaxUsableSampleCount(VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
+
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+            physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 uint32_t Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -1309,6 +1370,7 @@ VkPhysicalDevice Renderer::pickPhysicalDevice() {
 
         if (isDeviceSuitable(device)) {
             std::cout << "Using discrete GPU: " << properties.deviceName << std::endl;
+            msaaSamples = pickMaxUsableSampleCount(device);
             return device;
         }
     }
@@ -1322,6 +1384,7 @@ VkPhysicalDevice Renderer::pickPhysicalDevice() {
     }
 
     std::cout << "Using fallback physical device: " << properties.deviceName << std::endl;
+    msaaSamples = pickMaxUsableSampleCount(physicalDevices[0]);
     return physicalDevices[0];
 }
 
@@ -1361,8 +1424,9 @@ void Renderer::recreateSwapchain() {
     createSwapchain();
     createRenderPass();
     createGraphicsPipeline();
+    createMsaaResources();
     createDepthResources();
-    swapchain.initFramebuffers(renderPass, depthImage.getView());
+    swapchain.initFramebuffers(renderPass, depthImage.getView(), msaaImage.getView());
     createDescriptorPool();
     createUniformBuffers();
     createDescriptorPool();
