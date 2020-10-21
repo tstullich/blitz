@@ -4,6 +4,7 @@
 
 #include <vulkan/vulkan.h>
 
+namespace blitz {
 class Image {
 public:
     Image() = default;
@@ -38,3 +39,4 @@ private:
     VkExtent3D extent = {};
     uint32_t mipLevels = 1;
 };
+} // namespace blitz

@@ -11,6 +11,7 @@
 #include "vertex.h"
 
 // TODO Templatize this logic since vertex and index buffer creation is almost identical
+namespace blitz {
 class Buffer {
 public:
     struct BufferContext {
@@ -68,3 +69,4 @@ public:
 
     void create(const BufferContext &ctx, const tinygltf::Image &textureImage);
 };
+} // namespace blitz

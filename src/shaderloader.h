@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+namespace blitz {
 class ShaderLoader {
 public:
     ShaderLoader() = delete;
@@ -27,3 +28,4 @@ public:
         return buffer;
     }
 };
+}

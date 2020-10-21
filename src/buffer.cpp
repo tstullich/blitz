@@ -2,7 +2,7 @@
 
 // TODO Create a separate command pool for copying buffers and use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
 // during command pool creation
-void Buffer::copyBuffer(const BufferContext &ctx, VkBuffer src, VkBuffer dst, VkDeviceSize size) {
+void blitz::Buffer::copyBuffer(const BufferContext &ctx, VkBuffer src, VkBuffer dst, VkDeviceSize size) {
     VkCommandBufferAllocateInfo allocateInfo = {};
     allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocateInfo.commandPool = ctx.commandPool;
@@ -43,13 +43,13 @@ void Buffer::copyBuffer(const BufferContext &ctx, VkBuffer src, VkBuffer dst, Vk
 }
 
 
-void Buffer::cleanup(VkDevice logicalDevice) {
+void blitz::Buffer::cleanup(VkDevice logicalDevice) {
     vkDestroyBuffer(logicalDevice, buffer, nullptr);
     vkFreeMemory(logicalDevice, deviceMemory, nullptr);
 }
 
-void Buffer::allocateMemory(const BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
-                            VkMemoryPropertyFlags properties, VkBuffer &buf, VkDeviceMemory &devMem) {
+void blitz::Buffer::allocateMemory(const Buffer::BufferContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
+                                   VkMemoryPropertyFlags properties, VkBuffer &buf, VkDeviceMemory &devMem) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -76,7 +76,7 @@ void Buffer::allocateMemory(const BufferContext &ctx, VkDeviceSize size, VkBuffe
     vkBindBufferMemory(ctx.logicalDevice, buf, devMem, 0);
 }
 
-uint32_t Buffer::pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t blitz::Buffer::pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -89,7 +89,7 @@ uint32_t Buffer::pickMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFi
     throw std::runtime_error("Unable to find proper memory type on the GPU!");
 }
 
-void VertexBuffer::create(const BufferContext &ctx, const std::vector<Vertex> &vertices) {
+void blitz::VertexBuffer::create(const BufferContext &ctx, const std::vector<Vertex> &vertices) {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     // We use a staging buffer to transfer the host buffer data to the GPU
@@ -114,7 +114,7 @@ void VertexBuffer::create(const BufferContext &ctx, const std::vector<Vertex> &v
     vkFreeMemory(ctx.logicalDevice, stagingMemory, nullptr);
 }
 
-void IndexBuffer::create(const BufferContext &ctx, const std::vector<uint32_t> &vertIndices) {
+void blitz::IndexBuffer::create(const BufferContext &ctx, const std::vector<uint32_t> &vertIndices) {
     VkDeviceSize bufferSize = sizeof(vertIndices[0]) * vertIndices.size();
 
     VkBuffer stagingBuffer;
@@ -137,14 +137,14 @@ void IndexBuffer::create(const BufferContext &ctx, const std::vector<uint32_t> &
     vkFreeMemory(ctx.logicalDevice, stagingMemory, nullptr);
 }
 
-void UniformBuffer::create(const BufferContext &ctx, const Camera &camera) {
+void blitz::UniformBuffer::create(const BufferContext &ctx, const Camera &camera) {
     VkDeviceSize bufferSize = sizeof(Camera);
 
     allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, deviceMemory);
 }
 
-void TextureBuffer::create(const Buffer::BufferContext &ctx, const tinygltf::Image &textureImage) {
+void blitz::TextureBuffer::create(const Buffer::BufferContext &ctx, const tinygltf::Image &textureImage) {
     VkDeviceSize bufferSize = textureImage.image.size();
 
     allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |

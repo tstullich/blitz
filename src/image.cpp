@@ -1,10 +1,10 @@
 #include "image.h"
 
-Image::Image(VkDevice logicalDevice, const VkImageCreateInfo &imageInfo) {
+blitz::Image::Image(VkDevice logicalDevice, const VkImageCreateInfo &imageInfo) {
     createImage(logicalDevice, imageInfo);
 }
 
-void Image::bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex, VkImageAspectFlagBits aspectFlags) {
+void blitz::Image::bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex, VkImageAspectFlagBits aspectFlags) {
     VkMemoryRequirements memRequirements;
     vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
 
@@ -23,13 +23,13 @@ void Image::bindImage(VkDevice logicalDevice, uint32_t memoryTypeIndex, VkImageA
     createImageView(logicalDevice, aspectFlags);
 }
 
-void Image::cleanup(VkDevice logicalDevice) {
+void blitz::Image::cleanup(VkDevice logicalDevice) {
     vkDestroyImageView(logicalDevice, imageView, nullptr);
     vkDestroyImage(logicalDevice, image, nullptr);
     vkFreeMemory(logicalDevice, imageMemory, nullptr);
 }
 
-void Image::createImage(VkDevice logicalDevice, const VkImageCreateInfo &imageCreateInfo) {
+void blitz::Image::createImage(VkDevice logicalDevice, const VkImageCreateInfo &imageCreateInfo) {
     // Store the image format and mip levels for later use
     format = imageCreateInfo.format;
     mipLevels = imageCreateInfo.mipLevels;
@@ -40,7 +40,7 @@ void Image::createImage(VkDevice logicalDevice, const VkImageCreateInfo &imageCr
     }
 }
 
-void Image::createImageView(VkDevice logicalDevice, VkImageAspectFlagBits aspectFlags) {
+void blitz::Image::createImageView(VkDevice logicalDevice, VkImageAspectFlagBits aspectFlags) {
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;

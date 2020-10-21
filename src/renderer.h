@@ -26,6 +26,7 @@
 #include "ui.h"
 #include "vertex.h"
 
+namespace blitz {
 class Renderer {
 public:
     Renderer();
@@ -41,9 +42,12 @@ private:
         uint32_t presentFamilyIndex;
     };
 
-    static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-                                                 const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-        auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    static VkResult
+    CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+                                 const VkAllocationCallbacks *pAllocator,
+                                 VkDebugUtilsMessengerEXT *pDebugMessenger) {
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance,
+                                                                               "vkCreateDebugUtilsMessengerEXT");
         if (func != nullptr) {
             return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
         } else {
@@ -54,8 +58,8 @@ private:
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
             VkDebugUtilsMessageTypeFlagsEXT messageType,
-            const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-            void* pUserData) {
+            const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+            void *pUserData) {
 
         std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
 
@@ -63,17 +67,18 @@ private:
     }
 
     static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
-                                              const VkAllocationCallbacks* pAllocator) {
-        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+                                              const VkAllocationCallbacks *pAllocator) {
+        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance,
+                                                                                "vkDestroyDebugUtilsMessengerEXT");
         if (func != nullptr) {
             func(instance, debugMessenger, pAllocator);
         }
     }
 
-    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
+    static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+        auto app = reinterpret_cast<Renderer *>(glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
     }
 
@@ -116,8 +121,8 @@ private:
     void createGraphicsPipeline();
 
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-                     VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                     VkDeviceMemory& imageMemory);
+                     VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
+                     VkDeviceMemory &imageMemory);
 
     VkImageView createImageView(VkImage image, VkFormat format);
 
@@ -155,14 +160,14 @@ private:
 
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-    void generateMipMaps(const Texture &texture);
+    void generateMipMaps(const Texture &tex);
 
     void getDeviceQueueIndices();
 
-    std::vector<const char*> getRequiredExtensions() const;
+    std::vector<const char *> getRequiredExtensions() const;
 
     inline bool hasStencilComponent(VkFormat format) {
-            return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
     void initUI();
@@ -189,7 +194,7 @@ private:
 
     VkFormat pickDepthFormat();
 
-    VkSampleCountFlagBits pickMaxUsableSampleCount(VkPhysicalDevice device);
+    static VkSampleCountFlagBits pickMaxUsableSampleCount(VkPhysicalDevice device);
 
     uint32_t pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -262,14 +267,14 @@ private:
 
     bool framebufferResized = false;
 
-    std::vector<const char*> requiredExtensions;
+    std::vector<const char *> requiredExtensions;
 
-    const std::array<const char*, 1> validationLayers = {
-        "VK_LAYER_KHRONOS_validation",
+    const std::array<const char *, 1> validationLayers = {
+            "VK_LAYER_KHRONOS_validation",
     };
 
-    const std::array<const char*, 1> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    const std::array<const char *, 1> deviceExtensions = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
     std::vector<Vertex> vertices = {};
@@ -279,9 +284,10 @@ private:
 
     // Debug utilities
     VkDebugUtilsMessengerEXT debugMessenger = {};
-    #ifdef NDEBUG
-        const bool enableValidationLayers = false;
-    #else
-        const bool enableValidationLayers = true;
-    #endif
+#ifdef NDEBUG
+    const bool enableValidationLayers = false;
+#else
+    const bool enableValidationLayers = true;
+#endif
 };
+} // namespace blitz

@@ -1,6 +1,6 @@
 #include "ui.h"
 
-void UserInterface::cleanupResources() {
+void blitz::UserInterface::cleanupResources() {
     for (auto framebuffer : framebuffers) {
         vkDestroyFramebuffer(context.logicalDevice, framebuffer, nullptr);
     }
@@ -9,7 +9,7 @@ void UserInterface::cleanupResources() {
                          commandBuffers.data());
 }
 
-void UserInterface::cleanup() {
+void blitz::UserInterface::cleanup() {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -22,7 +22,7 @@ void UserInterface::cleanup() {
     vkDestroyRenderPass(context.logicalDevice, renderPass, nullptr);
 }
 
-void UserInterface::draw() {
+void blitz::UserInterface::draw() {
     // Start the Dear ImGui frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -35,12 +35,12 @@ void UserInterface::draw() {
 
     ImGui::Checkbox("Rotate Object", &options.rotate);
 
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
 
     ImGui::Render();
 }
 
-void UserInterface::init(const UIContext &ctx) {
+void blitz::UserInterface::init(const UIContext &ctx) {
     context = ctx;
 
     IMGUI_CHECKVERSION();
@@ -74,7 +74,7 @@ void UserInterface::init(const UIContext &ctx) {
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-VkCommandBuffer UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) const {
+VkCommandBuffer blitz::UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) const {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -95,7 +95,7 @@ VkCommandBuffer UserInterface::beginSingleTimeCommands(VkCommandPool cmdPool) co
     return commandBuffer;
 }
 
-void UserInterface::createCommandBuffers() {
+void blitz::UserInterface::createCommandBuffers() {
     commandBuffers.resize(context.imageCount);
 
     VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
@@ -109,7 +109,7 @@ void UserInterface::createCommandBuffers() {
     }
 }
 
-void UserInterface::createCommandPool(VkCommandPoolCreateFlags flags) {
+void blitz::UserInterface::createCommandPool(VkCommandPoolCreateFlags flags) {
     VkCommandPoolCreateInfo commandPoolCreateInfo = {};
     commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandPoolCreateInfo.queueFamilyIndex = context.graphicsFamilyIndex;
@@ -122,7 +122,7 @@ void UserInterface::createCommandPool(VkCommandPoolCreateFlags flags) {
 
 // Copied this code from DearImgui's setup:
 // https://github.com/ocornut/imgui/blob/master/examples/example_glfw_vulkan/main.cpp
-void UserInterface::createDescriptorPool() {
+void blitz::UserInterface::createDescriptorPool() {
     VkDescriptorPoolSize pool_sizes[] = {
             { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
             { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
@@ -148,7 +148,7 @@ void UserInterface::createDescriptorPool() {
     }
 }
 
-void UserInterface::createFramebuffers() {
+void blitz::UserInterface::createFramebuffers() {
     // Create some UI framebuffers. These will be used in the render pass for the UI
     framebuffers.resize(context.imageCount);
     VkImageView attachment[1];
@@ -169,7 +169,7 @@ void UserInterface::createFramebuffers() {
     }
 }
 
-void UserInterface::createRenderPass() {
+void blitz::UserInterface::createRenderPass() {
     // Create an attachment description for the render pass
     VkAttachmentDescription attachmentDescription = {};
     attachmentDescription.format = context.swapchain.getImageFormat();
@@ -218,7 +218,7 @@ void UserInterface::createRenderPass() {
     }
 }
 
-void UserInterface::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const {
+void blitz::UserInterface::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo = {};
@@ -232,7 +232,7 @@ void UserInterface::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkComma
     vkFreeCommandBuffers(context.logicalDevice, cmdPool, 1, &commandBuffer);
 }
 
-VkCommandBuffer UserInterface::recordCommands(uint32_t bufferIdx, VkExtent2D swapchainExtent) {
+VkCommandBuffer blitz::UserInterface::recordCommands(uint32_t bufferIdx, VkExtent2D swapchainExtent) {
     VkCommandBufferBeginInfo cmdBufferBegin = {};
     cmdBufferBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmdBufferBegin.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -266,7 +266,7 @@ VkCommandBuffer UserInterface::recordCommands(uint32_t bufferIdx, VkExtent2D swa
     return commandBuffers[bufferIdx];
 }
 
-void UserInterface::recreate(const UIContext &ctx) {
+void blitz::UserInterface::recreate(const UIContext &ctx) {
     cleanupResources();
 
     context = ctx;

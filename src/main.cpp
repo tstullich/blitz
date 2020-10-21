@@ -1,7 +1,7 @@
 #include "renderer.h"
 
 int main() {
-    Renderer app;
+    blitz::Renderer app;
     try {
         app.run();
     } catch (std::exception &e) {

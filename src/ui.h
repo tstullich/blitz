@@ -15,6 +15,7 @@
 #include "camera.h"
 #include "swapchain.h"
 
+namespace blitz {
 class UserInterface {
 public:
     struct UIContext {
@@ -76,3 +77,4 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkFramebuffer> framebuffers;
 };
+} // namespace blitz

@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+namespace blitz {
 struct Camera {
     Camera() = default;
 
@@ -19,3 +20,4 @@ struct Camera {
     glm::mat4 view = {};
     glm::mat4 proj = {};
 };
+} // namespace blitz

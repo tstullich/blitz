@@ -5,7 +5,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "tiny_gltf.h"
 
-tinygltf::Model GLTFLoader::load(const std::string &filePath) {
+tinygltf::Model blitz::GLTFLoader::load(const std::string &filePath) {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string error;

@@ -7,6 +7,7 @@
 #include "buffer.h"
 #include "image.h"
 
+namespace blitz {
 class Texture {
 public:
     Texture() = default;
@@ -32,3 +33,4 @@ private:
 
     Image textureImage = {};
 };
+} // namespace blitz

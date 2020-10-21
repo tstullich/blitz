@@ -5,8 +5,8 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
+namespace blitz {
 struct Vertex {
-    // Just have the position + color for now. Will expand to more attributes later
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 texCoord;
@@ -42,3 +42,4 @@ struct Vertex {
         return descriptions;
     }
 };
+} // namespace blitz

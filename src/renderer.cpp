@@ -1,13 +1,13 @@
 #include "renderer.h"
 
-Renderer::Renderer() {
+blitz::Renderer::Renderer() {
     loadScene();
     initWindow();
     initVulkan();
     initUI();
 }
 
-Renderer::~Renderer() {
+blitz::Renderer::~Renderer() {
     std::cout << "Cleaning up" << std::endl;
     if (enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
@@ -56,7 +56,7 @@ Renderer::~Renderer() {
     glfwTerminate();
 }
 
-VkCommandBuffer Renderer::beginSingleTimeCommands() {
+VkCommandBuffer blitz::Renderer::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -75,7 +75,7 @@ VkCommandBuffer Renderer::beginSingleTimeCommands() {
     return commandBuffer;
 }
 
-bool Renderer::checkDeviceExtensions(VkPhysicalDevice device) {
+bool blitz::Renderer::checkDeviceExtensions(VkPhysicalDevice device) {
     uint32_t extensionsCount = 0;
     if (vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionsCount, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("Unable to enumerate device extensions!");
@@ -92,7 +92,7 @@ bool Renderer::checkDeviceExtensions(VkPhysicalDevice device) {
     return requiredDeviceExtensions.empty();
 }
 
-bool Renderer::checkValidationLayerSupport() {
+bool blitz::Renderer::checkValidationLayerSupport() {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -116,7 +116,7 @@ bool Renderer::checkValidationLayerSupport() {
 }
 
 // Destroys all the resources associated with swapchain recreation
-void Renderer::cleanupSwapchain() {
+void blitz::Renderer::cleanupSwapchain() {
     msaaImage.cleanup(logicalDevice);
     depthImage.cleanup(logicalDevice);
 
@@ -135,7 +135,7 @@ void Renderer::cleanupSwapchain() {
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 }
 
-void Renderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+void blitz::Renderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
     VkBufferImageCopy region = {};
@@ -156,7 +156,7 @@ void Renderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
     endSingleTimeCommands(commandBuffer);
 }
 
-Buffer::BufferContext Renderer::createBufferContext() {
+blitz::Buffer::BufferContext blitz::Renderer::createBufferContext() {
     Buffer::BufferContext ctx = {};
     ctx.physicalDevice = physicalDevice;
     ctx.logicalDevice = logicalDevice;
@@ -166,7 +166,7 @@ Buffer::BufferContext Renderer::createBufferContext() {
     return ctx;
 }
 
-void Renderer::createCommandBuffers() {
+void blitz::Renderer::createCommandBuffers() {
     commandBuffers.resize(swapchain.getFramebufferSize());
 
     VkCommandBufferAllocateInfo allocInfo = {};
@@ -225,7 +225,7 @@ void Renderer::createCommandBuffers() {
     }
 }
 
-void Renderer::createCommandPool() {
+void blitz::Renderer::createCommandPool() {
     VkCommandPoolCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     createInfo.queueFamilyIndex = queueIndices.graphicsFamilyIndex;
@@ -235,7 +235,7 @@ void Renderer::createCommandPool() {
     }
 }
 
-void Renderer::createDepthResources() {
+void blitz::Renderer::createDepthResources() {
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -262,7 +262,7 @@ void Renderer::createDepthResources() {
 }
 
 // TODO Check if this is used by Dear IMGUI and how to move it
-void Renderer::createDescriptorPool() {
+void blitz::Renderer::createDescriptorPool() {
     VkDescriptorPoolSize uboPoolSize = {};
     uboPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboPoolSize.descriptorCount = static_cast<uint32_t>(swapchain.getImagesSize());
@@ -284,7 +284,7 @@ void Renderer::createDescriptorPool() {
     }
 }
 
-void Renderer::createDescriptorSetLayout() {
+void blitz::Renderer::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding uboBinding = {};
     uboBinding.binding = 0;
     uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -310,7 +310,7 @@ void Renderer::createDescriptorSetLayout() {
     }
 }
 
-void Renderer::createDescriptorSets() {
+void blitz::Renderer::createDescriptorSets() {
     std::vector<VkDescriptorSetLayout> layouts(swapchain.getImagesSize(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -356,7 +356,7 @@ void Renderer::createDescriptorSets() {
     }
 }
 
-void Renderer::createGraphicsPipeline() {
+void blitz::Renderer::createGraphicsPipeline() {
     // Load our shader modules in from disk
     auto vertShaderCode = ShaderLoader::load("shaders/vert.spv");
     auto fragShaderCode = ShaderLoader::load("shaders/frag.spv");
@@ -511,9 +511,9 @@ void Renderer::createGraphicsPipeline() {
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
 }
 
-void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-                           VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
-                           VkDeviceMemory &imageMemory) {
+void blitz::Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+                                  VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
+                                  VkDeviceMemory &imageMemory) {
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -548,12 +548,12 @@ void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkI
     vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 }
 
-void Renderer::createIndexBuffer() {
+void blitz::Renderer::createIndexBuffer() {
     auto ctx = createBufferContext();
     vertIndexBuffer.create(ctx, vertIndices);
 }
 
-void Renderer::createInstance() {
+void blitz::Renderer::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error("Unable to establish validation layer support!");
     }
@@ -592,7 +592,7 @@ void Renderer::createInstance() {
     }
 }
 
-void Renderer::createLogicalDevice() {
+void blitz::Renderer::createLogicalDevice() {
     // Setup our Command Queues
     std::set<uint32_t> uniqueQueueIndices = {queueIndices.graphicsFamilyIndex, queueIndices.presentFamilyIndex};
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -636,7 +636,7 @@ void Renderer::createLogicalDevice() {
     vkGetDeviceQueue(logicalDevice, queueIndices.presentFamilyIndex, 0, &presentQueue);
 }
 
-void Renderer::createMsaaResources() {
+void blitz::Renderer::createMsaaResources() {
     auto extent = swapchain.getExtent();
 
     VkImageCreateInfo imageCreateInfo = {};
@@ -662,7 +662,7 @@ void Renderer::createMsaaResources() {
     msaaImage.bindImage(logicalDevice, memoryTypeIndex, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void Renderer::createRenderPass() {
+void blitz::Renderer::createRenderPass() {
     // Configure a color attachment that will determine how the framebuffer is used
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapchain.getImageFormat();
@@ -739,7 +739,7 @@ void Renderer::createRenderPass() {
     }
 }
 
-VkShaderModule Renderer::createShaderModule(const std::vector<char> &shaderCode) {
+VkShaderModule blitz::Renderer::createShaderModule(const std::vector<char> &shaderCode) {
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = shaderCode.size();
@@ -754,17 +754,17 @@ VkShaderModule Renderer::createShaderModule(const std::vector<char> &shaderCode)
 }
 
 // For cross-platform compatibility we let GLFW take care of the surface creation
-void Renderer::createSurface() {
+void blitz::Renderer::createSurface() {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create window surface!");
     }
 }
 
-void Renderer::createSwapchain() {
+void blitz::Renderer::createSwapchain() {
     swapchain.init(createSwapchainContext());
 }
 
-Swapchain::SwapchainContext Renderer::createSwapchainContext() {
+blitz::Swapchain::SwapchainContext blitz::Renderer::createSwapchainContext() {
     Swapchain::SwapchainContext ctx = {};
     ctx.physicalDevice = physicalDevice;
     ctx.logicalDevice = logicalDevice;
@@ -777,7 +777,7 @@ Swapchain::SwapchainContext Renderer::createSwapchainContext() {
     return ctx;
 }
 
-void Renderer::createSyncObjects() {
+void blitz::Renderer::createSyncObjects() {
     // Create our semaphores and fences for synchronizing the GPU and CPU
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -810,7 +810,7 @@ void Renderer::createSyncObjects() {
 }
 
 // TODO Look into recording a buffer that uploads all texture asynchronously
-void Renderer::createTextureImage() {
+void blitz::Renderer::createTextureImage() {
     // Allocate a host-side staging buffer
     auto ctx = createBufferContext();
     auto stagingBuffer = TextureBuffer();
@@ -841,7 +841,7 @@ void Renderer::createTextureImage() {
     generateMipMaps(texture);
 }
 
-void Renderer::createTextureSampler() {
+void blitz::Renderer::createTextureSampler() {
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR; // TODO Grab this from glTF
@@ -865,7 +865,7 @@ void Renderer::createTextureSampler() {
     }
 }
 
-UserInterface::UIContext Renderer::createUIContext() {
+blitz::UserInterface::UIContext blitz::Renderer::createUIContext() {
     UserInterface::UIContext context = {};
     context.window = window;
     context.instance = instance;
@@ -879,7 +879,7 @@ UserInterface::UIContext Renderer::createUIContext() {
     return context;
 }
 
-void Renderer::createUniformBuffers() {
+void blitz::Renderer::createUniformBuffers() {
     // Create a uniform buffer for our camera parameters
     uniformBuffers.resize(swapchain.getImagesSize());
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
@@ -887,12 +887,12 @@ void Renderer::createUniformBuffers() {
     }
 }
 
-void Renderer::createVertexBuffer() {
+void blitz::Renderer::createVertexBuffer() {
     auto ctx = createBufferContext();
     vertexBuffer.create(ctx, vertices);
 }
 
-void Renderer::drawFrame() {
+void blitz::Renderer::drawFrame() {
     // Sync for next frame. Fences also need to be manually reset unlike semaphores, which is done here
     vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -969,7 +969,7 @@ void Renderer::drawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+void blitz::Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo{};
@@ -983,10 +983,10 @@ void Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
 
-void Renderer::generateMipMaps(const Texture &texture) {
+void blitz::Renderer::generateMipMaps(const Texture &tex) {
     // Check if the blit command is available on the physical device
     VkFormatProperties properties;
-    vkGetPhysicalDeviceFormatProperties(physicalDevice, texture.getTexImage().getFormat(), &properties);
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, tex.getTexImage().getFormat(), &properties);
     if (!(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("Texture image format does not support linear blitting!");
     }
@@ -995,7 +995,7 @@ void Renderer::generateMipMaps(const Texture &texture) {
 
     VkImageMemoryBarrier memBarrier = {};
     memBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    memBarrier.image = texture.getTexImage().getImage();
+    memBarrier.image = tex.getTexImage().getImage();
     memBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     memBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     memBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1003,9 +1003,9 @@ void Renderer::generateMipMaps(const Texture &texture) {
     memBarrier.subresourceRange.layerCount = 1;
     memBarrier.subresourceRange.levelCount = 1;
 
-    int32_t mipWidth = texture.getWidth();
-    int32_t mipHeight = texture.getHeight();
-    for (uint32_t i = 1; i < texture.getMipLevels(); ++i) {
+    int32_t mipWidth = tex.getWidth();
+    int32_t mipHeight = tex.getHeight();
+    for (uint32_t i = 1; i < tex.getMipLevels(); ++i) {
         memBarrier.subresourceRange.baseMipLevel = i - 1;
         memBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         memBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -1034,8 +1034,8 @@ void Renderer::generateMipMaps(const Texture &texture) {
         blit.dstSubresource.layerCount = 1;
 
         vkCmdBlitImage(commandBuffer,
-                       texture.getTexImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       texture.getTexImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       tex.getTexImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       tex.getTexImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                        1, &blit,
                        VK_FILTER_LINEAR);
 
@@ -1056,7 +1056,7 @@ void Renderer::generateMipMaps(const Texture &texture) {
     }
 
     // Put in a final barrier for transitioning
-    memBarrier.subresourceRange.baseMipLevel = texture.getMipLevels() - 1;
+    memBarrier.subresourceRange.baseMipLevel = tex.getMipLevels() - 1;
     memBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     memBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1071,7 +1071,7 @@ void Renderer::generateMipMaps(const Texture &texture) {
     endSingleTimeCommands(commandBuffer);
 }
 
-void Renderer::getDeviceQueueIndices() {
+void blitz::Renderer::getDeviceQueueIndices() {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
 
@@ -1096,7 +1096,7 @@ void Renderer::getDeviceQueueIndices() {
     }
 }
 
-std::vector<const char *> Renderer::getRequiredExtensions() const {
+std::vector<const char *> blitz::Renderer::getRequiredExtensions() const {
     uint32_t glfwExtensionCount = 0;
     const char** glfwRequiredExtensions;
     glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -1112,11 +1112,12 @@ std::vector<const char *> Renderer::getRequiredExtensions() const {
     return extensions;
 }
 
-void Renderer::initUI() {
-    ui.init(createUIContext());
+void blitz::Renderer::initUI() {
+    auto ctx = createUIContext();
+    ui.init(ctx);
 }
 
-void Renderer::initVulkan() {
+void blitz::Renderer::initVulkan() {
     createInstance();
     setupDebugMessenger();
     createSurface();
@@ -1142,7 +1143,7 @@ void Renderer::initVulkan() {
     createSyncObjects();
 }
 
-void Renderer::initWindow() {
+void blitz::Renderer::initWindow() {
     if (!glfwInit()) {
         throw std::runtime_error("Unable to initialize GLFW!");
     }
@@ -1163,7 +1164,7 @@ void Renderer::initWindow() {
     }
 }
 
-bool Renderer::isDeviceSuitable(VkPhysicalDevice device) {
+bool blitz::Renderer::isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceFeatures supportedFeatures;
     vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
@@ -1182,13 +1183,13 @@ bool Renderer::isDeviceSuitable(VkPhysicalDevice device) {
         supportedFeatures.samplerAnisotropy;
 }
 
-void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+void blitz::Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE || key == GLFW_KEY_Q) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 }
 
-void Renderer::loadCamera(tinygltf::Model &model, tinygltf::Node &node) {
+void blitz::Renderer::loadCamera(tinygltf::Model &model, tinygltf::Node &node) {
     // TODO Figure out why this does not work!
     auto translation = glm::mat4(1.0f);
     if (!node.translation.empty()) {
@@ -1213,7 +1214,7 @@ void Renderer::loadCamera(tinygltf::Model &model, tinygltf::Node &node) {
     cam.model = translation * rotation * scale;
 }
 
-void Renderer::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh) {
+void blitz::Renderer::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh) {
     for (auto primitive : mesh.primitives) {
         if (primitive.indices >= 0) {
             // Mesh supports indexing. Load the indices
@@ -1228,7 +1229,7 @@ void Renderer::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh) {
     }
 }
 
-void Renderer::loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &primitive) {
+void blitz::Renderer::loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &primitive) {
     auto indicesAccessor = model.accessors[primitive.indices];
     auto bufferView = model.bufferViews[indicesAccessor.bufferView];
     auto buffer = model.buffers[bufferView.buffer];
@@ -1249,7 +1250,7 @@ void Renderer::loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &prim
     }
 }
 
-void Renderer::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive) {
+void blitz::Renderer::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive) {
     // TODO Expand the logic here later to properly handle PBR-related things
     auto material = model.materials[primitive.material];
     if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
@@ -1259,7 +1260,7 @@ void Renderer::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &pri
     }
 }
 
-void Renderer::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive) {
+void blitz::Renderer::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive) {
     auto positionIndex = primitive.attributes.find("POSITION")->second;
     auto normalIndex = primitive.attributes.find("NORMAL")->second;
     auto texIndex = primitive.attributes.find("TEXCOORD_0")->second;
@@ -1321,7 +1322,7 @@ void Renderer::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh
     }
 }
 
-void Renderer::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
+void blitz::Renderer::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
     if (node.mesh >= 0 && node.mesh < model.meshes.size()) {
         loadMesh(model, model.meshes[node.mesh]);
     }
@@ -1337,7 +1338,7 @@ void Renderer::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
     }
 }
 
-void Renderer::loadScene() {
+void blitz::Renderer::loadScene() {
     auto model = GLTFLoader::load("models/helmet/SciFiHelmet.gltf");
     auto scene = model.scenes[model.defaultScene];
     cam = Camera(static_cast<float>(windowWidth) / windowHeight);
@@ -1346,7 +1347,7 @@ void Renderer::loadScene() {
     }
 }
 
-VkFormat Renderer::pickDepthFormat() {
+VkFormat blitz::Renderer::pickDepthFormat() {
     return pickSupportedFormat(
             {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
             VK_IMAGE_TILING_OPTIMAL,
@@ -1354,7 +1355,7 @@ VkFormat Renderer::pickDepthFormat() {
     );
 }
 
-VkSampleCountFlagBits Renderer::pickMaxUsableSampleCount(VkPhysicalDevice device) {
+VkSampleCountFlagBits blitz::Renderer::pickMaxUsableSampleCount(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
 
@@ -1370,7 +1371,7 @@ VkSampleCountFlagBits Renderer::pickMaxUsableSampleCount(VkPhysicalDevice device
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-uint32_t Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t blitz::Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -1383,7 +1384,7 @@ uint32_t Renderer::pickMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
     throw std::runtime_error("Unable to find proper memory type on the GPU!");
 }
 
-VkPhysicalDevice Renderer::pickPhysicalDevice() {
+VkPhysicalDevice blitz::Renderer::pickPhysicalDevice() {
     uint32_t physicalDeviceCount = 0;
     if (vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("Unable to enumerate physical devices!");
@@ -1420,8 +1421,8 @@ VkPhysicalDevice Renderer::pickPhysicalDevice() {
     return physicalDevices[0];
 }
 
-VkFormat Renderer::pickSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
-                                       VkFormatFeatureFlags features) {
+VkFormat blitz::Renderer::pickSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                                              VkFormatFeatureFlags features) {
     for (const auto& format : candidates) {
         VkFormatProperties properties;
         vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &properties);
@@ -1436,7 +1437,7 @@ VkFormat Renderer::pickSupportedFormat(const std::vector<VkFormat> &candidates, 
 
 // In case the swapchain is invalidated, i.e. during window resizing,
 // we need to implement a mechanism to recreate it
-void Renderer::recreateSwapchain() {
+void blitz::Renderer::recreateSwapchain() {
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0) {
@@ -1470,7 +1471,7 @@ void Renderer::recreateSwapchain() {
     ui.recreate(createUIContext());
 }
 
-void Renderer::run() {
+void blitz::Renderer::run() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         ui.draw();
@@ -1481,7 +1482,7 @@ void Renderer::run() {
     vkDeviceWaitIdle(logicalDevice);
 }
 
-void Renderer::setupDebugMessenger() {
+void blitz::Renderer::setupDebugMessenger() {
     if (!enableValidationLayers) {
         return;
     }
@@ -1494,7 +1495,7 @@ void Renderer::setupDebugMessenger() {
     }
 }
 
-void Renderer::transitionImageLayout(const Image &image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void blitz::Renderer::transitionImageLayout(const Image &image, VkImageLayout oldLayout, VkImageLayout newLayout) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier = {};
@@ -1551,7 +1552,7 @@ void Renderer::transitionImageLayout(const Image &image, VkImageLayout oldLayout
     endSingleTimeCommands(commandBuffer);
 }
 
-void Renderer::updateUniformBuffer(size_t bufferIdx) {
+void blitz::Renderer::updateUniformBuffer(size_t bufferIdx) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();

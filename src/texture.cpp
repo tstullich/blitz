@@ -1,6 +1,6 @@
 #include "texture.h"
 
-Texture::Texture(VkDevice logicalDevice, const tinygltf::Image &image, bool createMips) {
+blitz::Texture::Texture(VkDevice logicalDevice, const tinygltf::Image &image, bool createMips) {
     auto imageWidth = static_cast<uint32_t>(image.width);
     auto imageHeight = static_cast<uint32_t>(image.height);
     auto mipLevels = createMips ? calculateMipLevels(imageWidth, imageHeight) : 1;
@@ -29,14 +29,14 @@ Texture::Texture(VkDevice logicalDevice, const tinygltf::Image &image, bool crea
     textureImage = Image(logicalDevice, imageInfo);
 }
 
-void Texture::bind(VkDevice logicalDevice, uint32_t memoryTypeIndex) {
+void blitz::Texture::bind(VkDevice logicalDevice, uint32_t memoryTypeIndex) {
     textureImage.bindImage(logicalDevice, memoryTypeIndex, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void Texture::cleanup(VkDevice logicalDevice) {
+void blitz::Texture::cleanup(VkDevice logicalDevice) {
     textureImage.cleanup(logicalDevice);
 }
 
-uint32_t Texture::calculateMipLevels(const uint32_t &texWidth, const uint32_t &texHeight) {
+uint32_t blitz::Texture::calculateMipLevels(const uint32_t &texWidth, const uint32_t &texHeight) {
     return static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 }

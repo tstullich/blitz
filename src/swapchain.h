@@ -6,6 +6,7 @@
 
 #include <vulkan/vulkan.h>
 
+namespace blitz {
 class Swapchain {
 public:
     struct SwapchainContext {
@@ -31,7 +32,8 @@ public:
 
     void init(const SwapchainContext &context);
 
-    void initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView, const VkImageView &msaaImageView);
+    void initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView,
+                          const VkImageView &msaaImageView);
 
     inline size_t getFramebufferSize() const { return swapchainFramebuffers.size(); }
 
@@ -51,14 +53,16 @@ public:
 
     inline VkSwapchainKHR getSwapchain() const { return swapchain; }
 
-    static SwapchainConfiguration querySwapchainSupport(const VkPhysicalDevice &physicalDevice, const VkSurfaceKHR &surface);
+    static SwapchainConfiguration
+    querySwapchainSupport(const VkPhysicalDevice &physicalDevice, const VkSurfaceKHR &surface);
 
 private:
     void createImageViews();
 
     void createSwapchain();
 
-    static VkExtent2D pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities, uint32_t width, uint32_t height);
+    static VkExtent2D
+    pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities, uint32_t width, uint32_t height);
 
     static VkPresentModeKHR pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes);
 
@@ -75,3 +79,4 @@ private:
 
     uint32_t imageCount = 0;
 };
+} // namespace blitz

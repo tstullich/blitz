@@ -4,7 +4,7 @@
 
 #include "swapchain.h"
 
-void Swapchain::cleanup() {
+void blitz::Swapchain::cleanup() {
     for (auto framebuffer : swapchainFramebuffers) {
         vkDestroyFramebuffer(ctx.logicalDevice, framebuffer, nullptr);
     }
@@ -16,14 +16,14 @@ void Swapchain::cleanup() {
     vkDestroySwapchainKHR(ctx.logicalDevice, swapchain, nullptr);
 }
 
-void Swapchain::init(const SwapchainContext &context) {
+void blitz::Swapchain::init(const SwapchainContext &context) {
     ctx = context;
     createSwapchain();
     createImageViews();
 }
 
-void Swapchain::initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView,
-                                 const VkImageView &msaaImageView) {
+void blitz::Swapchain::initFramebuffers(const VkRenderPass &renderPass, const VkImageView &depthImageView,
+                                        const VkImageView &msaaImageView) {
     swapchainFramebuffers.resize(swapchainImageViews.size());
     for (size_t i = 0; i < swapchainImageViews.size(); ++i) {
         // We need to attach an image view to the frame buffer for presentation purposes
@@ -47,7 +47,7 @@ void Swapchain::initFramebuffers(const VkRenderPass &renderPass, const VkImageVi
     }
 }
 
-void Swapchain::createImageViews() {
+void blitz::Swapchain::createImageViews() {
     swapchainImageViews.resize(swapchainImages.size());
     for (size_t i = 0; i < swapchainImages.size(); ++i) {
         VkImageViewCreateInfo createInfo = {};
@@ -59,7 +59,7 @@ void Swapchain::createImageViews() {
         createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // We do not enable mip-mapping
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.baseMipLevel = 0;
         createInfo.subresourceRange.levelCount = 1;
@@ -72,7 +72,7 @@ void Swapchain::createImageViews() {
     }
 }
 
-void Swapchain::createSwapchain() {
+void blitz::Swapchain::createSwapchain() {
     SwapchainConfiguration configuration = querySwapchainSupport(ctx.physicalDevice, ctx.surface);
 
     VkSurfaceFormatKHR surfaceFormat = pickSwapchainSurfaceFormat(configuration.surfaceFormats);
@@ -125,7 +125,7 @@ void Swapchain::createSwapchain() {
     vkGetSwapchainImagesKHR(ctx.logicalDevice, swapchain, &imageCount, swapchainImages.data());
 }
 
-VkExtent2D Swapchain::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities, uint32_t width, uint32_t height) {
+VkExtent2D blitz::Swapchain::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfaceCapabilities, uint32_t width, uint32_t height) {
     if (surfaceCapabilities.currentExtent.width != UINT32_MAX) {
         return surfaceCapabilities.currentExtent;
     } else {
@@ -138,7 +138,7 @@ VkExtent2D Swapchain::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR &surfac
     }
 }
 
-VkPresentModeKHR Swapchain::pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes) {
+VkPresentModeKHR blitz::Swapchain::pickSwapchainPresentMode(const std::vector<VkPresentModeKHR> &presentModes) {
     // Look for triple-buffering present mode if available
     for (VkPresentModeKHR availableMode : presentModes) {
         if (availableMode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -150,7 +150,7 @@ VkPresentModeKHR Swapchain::pickSwapchainPresentMode(const std::vector<VkPresent
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkSurfaceFormatKHR Swapchain::pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats) {
+VkSurfaceFormatKHR blitz::Swapchain::pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats) {
     for (VkSurfaceFormatKHR availableFormat : formats) {
         if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
             availableFormat.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
@@ -163,7 +163,8 @@ VkSurfaceFormatKHR Swapchain::pickSwapchainSurfaceFormat(const std::vector<VkSur
     return formats[0];
 }
 
-Swapchain::SwapchainConfiguration Swapchain::querySwapchainSupport(const VkPhysicalDevice &device, const VkSurfaceKHR &surface) {
+blitz::Swapchain::SwapchainConfiguration blitz::Swapchain::querySwapchainSupport(const VkPhysicalDevice &device,
+                                                                                 const VkSurfaceKHR &surface) {
     SwapchainConfiguration config = {};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &config.capabilities);
 
