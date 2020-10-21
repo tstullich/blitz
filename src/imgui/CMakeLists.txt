@@ -1,4 +1,4 @@
-target_sources(renderer PUBLIC
+target_sources(${PROJECT_NAME} PUBLIC
         imgui.cpp
         imgui_draw.cpp
         imgui_impl_glfw.cpp

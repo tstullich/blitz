@@ -18,10 +18,12 @@ SET(SRCS main.cpp
         scene.cpp
         scene.h)
 
-add_executable(renderer ${SRCS})
+add_executable(${PROJECT_NAME} ${SRCS})
 
 add_subdirectory(imgui)
 
-target_include_directories(renderer PUBLIC imgui tinygltf)
+target_include_directories(${PROJECT_NAME} PUBLIC imgui tinygltf)
 
-target_link_libraries(renderer glfw Vulkan::Vulkan glm::glm)
+target_link_libraries(${PROJECT_NAME} glfw Vulkan::Vulkan glm::glm)
+
+install(TARGETS ${PROJECT_NAME} DESTINATION ${BLITZ_INSTALL_BIN_DIR})
