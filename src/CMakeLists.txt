@@ -14,7 +14,9 @@ SET(SRCS main.cpp
         texture.h
         texture.cpp
         image.h
-        image.cpp)
+        image.cpp
+        scene.cpp
+        scene.h)
 
 add_executable(renderer ${SRCS})
 

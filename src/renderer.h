@@ -20,9 +20,10 @@
 
 #include "buffer.h"
 #include "gltfloader.h"
-#include "texture.h"
+#include "scene.h"
 #include "shaderloader.h"
 #include "swapchain.h"
+#include "texture.h"
 #include "ui.h"
 #include "vertex.h"
 
@@ -178,18 +179,6 @@ private:
 
     bool isDeviceSuitable(VkPhysicalDevice device);
 
-    void loadCamera(tinygltf::Model &model, tinygltf::Node &node);
-
-    void loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh);
-
-    void loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive);
-
-    void loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &primitive);
-
-    void loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive);
-
-    void loadNode(tinygltf::Model &mode, tinygltf::Node &node);
-
     void loadScene();
 
     VkFormat pickDepthFormat();
@@ -233,8 +222,6 @@ private:
     std::vector<UniformBuffer> uniformBuffers;
 
     Texture texture;
-    tinygltf::Image textureImage;
-    tinygltf::Sampler sampler;
     VkSampler textureSampler;
 
     Image depthImage;
@@ -265,6 +252,8 @@ private:
 
     Camera cam;
 
+    Scene scene;
+
     bool framebufferResized = false;
 
     std::vector<const char *> requiredExtensions;
@@ -276,9 +265,6 @@ private:
     const std::array<const char *, 1> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
-
-    std::vector<Vertex> vertices = {};
-    std::vector<uint32_t> vertIndices = {};
 
     QueueFamilyIndices queueIndices = {};
 
