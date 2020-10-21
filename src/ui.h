@@ -12,6 +12,7 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
 
+#include "camera.h"
 #include "swapchain.h"
 
 class UserInterface {
@@ -29,6 +30,7 @@ public:
 
     struct UIOptions {
         alignas(16) bool rotate;
+        Camera cam;
     };
 
     UserInterface() = default;
@@ -44,6 +46,8 @@ public:
     VkCommandBuffer recordCommands(uint32_t bufferIdx, VkExtent2D extent2D);
 
     void recreate(const UIContext &ctx);
+
+    inline void setUIOptions(const UIOptions &uiOptions) { options = uiOptions; }
 
 private:
     VkCommandBuffer beginSingleTimeCommands(VkCommandPool cmdPool) const;
@@ -63,7 +67,7 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const;
 
     UIContext context = {};
-    UIOptions options = { .rotate = true };
+    UIOptions options = { .rotate = false, .cam = Camera() };
 
     VkRenderPass renderPass = {};
     VkDescriptorPool descriptorPool = {};

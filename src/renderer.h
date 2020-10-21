@@ -16,6 +16,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include "buffer.h"
 #include "gltfloader.h"
@@ -172,6 +173,8 @@ private:
 
     bool isDeviceSuitable(VkPhysicalDevice device);
 
+    void loadCamera(tinygltf::Model &model, tinygltf::Node &node);
+
     void loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh);
 
     void loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive);
@@ -255,7 +258,7 @@ private:
 
     UserInterface ui;
 
-    Camera cam = {};
+    Camera cam;
 
     bool framebufferResized = false;
 

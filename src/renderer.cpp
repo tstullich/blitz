@@ -875,11 +875,12 @@ UserInterface::UIContext Renderer::createUIContext() {
     context.imageCount = swapchain.getImageCount();
     context.graphicsFamilyIndex = queueIndices.graphicsFamilyIndex;
     context.swapchain = swapchain;
+
     return context;
 }
 
 void Renderer::createUniformBuffers() {
-    Camera cam = {};
+    // Create a uniform buffer for our camera parameters
     uniformBuffers.resize(swapchain.getImagesSize());
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
         uniformBuffers[i].create(createBufferContext(), cam);
@@ -1187,6 +1188,31 @@ void Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int action
     }
 }
 
+void Renderer::loadCamera(tinygltf::Model &model, tinygltf::Node &node) {
+    // TODO Figure out why this does not work!
+    auto translation = glm::mat4(1.0f);
+    if (!node.translation.empty()) {
+        auto translationVec = glm::vec3(node.translation[0], node.translation[1], node.translation[2]);
+        translation = glm::translate(translation, translationVec);
+    }
+
+    auto rotation = glm::mat4(1.0f);
+    if (!node.rotation.empty()) {
+        auto rotationQuat = glm::quat(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
+        rotation = glm::mat4_cast(rotationQuat);
+    }
+
+    auto scale = glm::mat4(1.0f);
+    if (!node.scale.empty()) {
+        // Unlikely that the camera node will have a scale vector
+        // but keeping it just in case
+        auto scalingVec = glm::vec3(node.scale[0], node.scale[1], node.scale[2]);
+        scale = glm::scale(scale, scalingVec);
+    }
+
+    cam.model = translation * rotation * scale;
+}
+
 void Renderer::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh) {
     for (auto primitive : mesh.primitives) {
         if (primitive.indices >= 0) {
@@ -1300,6 +1326,11 @@ void Renderer::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
         loadMesh(model, model.meshes[node.mesh]);
     }
 
+    // TODO Check if this is the best way to setup the camera
+    //if (node.name == "Camera") {
+    //    loadCamera(model, node);
+    //}
+
     // Parse child nodes
     for (int i : node.children) {
         loadNode(model, model.nodes[i]);
@@ -1307,8 +1338,9 @@ void Renderer::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
 }
 
 void Renderer::loadScene() {
-    auto model = GLTFLoader::load("models/box-textured/BoxTextured.gltf");
+    auto model = GLTFLoader::load("models/helmet/SciFiHelmet.gltf");
     auto scene = model.scenes[model.defaultScene];
+    cam = Camera(static_cast<float>(windowWidth) / windowHeight);
     for (int nodeId : scene.nodes) {
         loadNode(model, model.nodes[nodeId]);
     }
@@ -1531,8 +1563,12 @@ void Renderer::updateUniformBuffer(size_t bufferIdx) {
         cam.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     }
     cam.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    cam.proj = glm::perspective(glm::radians(45.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
+    cam.proj = glm::perspective(glm::radians(60.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
     cam.proj[1][1] *= -1;
+
+    // Update UI elements
+    options.cam = cam;
+    ui.setUIOptions(options);
 
     void* data;
     vkMapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory(), 0, sizeof(cam), 0, &data);

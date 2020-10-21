@@ -28,9 +28,12 @@ void UserInterface::draw() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    if (ImGui::CollapsingHeader("Camera")) {
-        ImGui::Checkbox("Rotate Object", &options.rotate);
-    }
+    ImGui::Text("Camera Position - X: %.4f Y: %.4f Z: %.4f", options.cam.model[3][0], options.cam.model[3][1], options.cam.model[3][2]);
+
+    //const std::array<float, 5> values = { 0.2, 1.0, 0.4, 0.4, 0.3 };
+    //ImGui::PlotLines("Frame Times", values.data(), values.size());
+
+    ImGui::Checkbox("Rotate Object", &options.rotate);
 
     ImGui::ShowDemoWindow();
 
@@ -238,7 +241,7 @@ VkCommandBuffer UserInterface::recordCommands(uint32_t bufferIdx, VkExtent2D swa
         throw std::runtime_error("Unable to start recording UI command buffer!");
     }
 
-    VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+    VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
     VkRenderPassBeginInfo renderPassBeginInfo = {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = renderPass;
