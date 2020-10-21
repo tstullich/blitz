@@ -1410,13 +1410,9 @@ void blitz::Renderer::updateUniformBuffer(size_t bufferIdx) {
     if (options.rotate) {
         cam.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     }
-    cam.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    cam.view = glm::lookAt(options.camPosition, options.camLookAt, glm::vec3(0.0f, 0.0f, 1.0f));
     cam.proj = glm::perspective(glm::radians(60.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
     cam.proj[1][1] *= -1;
-
-    // Update UI elements
-    options.cam = cam;
-    ui.setUIOptions(options);
 
     void* data;
     vkMapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory(), 0, sizeof(cam), 0, &data);

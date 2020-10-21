@@ -216,13 +216,13 @@ private:
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    VertexBuffer vertexBuffer;
-    IndexBuffer vertIndexBuffer;
+    VertexBuffer vertexBuffer = {};
+    IndexBuffer vertIndexBuffer = {};
 
     std::vector<UniformBuffer> uniformBuffers;
 
     Texture texture;
-    VkSampler textureSampler;
+    VkSampler textureSampler = {};
 
     Image depthImage;
     Image msaaImage;

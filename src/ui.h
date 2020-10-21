@@ -31,7 +31,8 @@ public:
 
     struct UIOptions {
         alignas(16) bool rotate;
-        Camera cam;
+        glm::vec3 camPosition;
+        glm::vec3 camLookAt;
     };
 
     UserInterface() = default;
@@ -47,8 +48,6 @@ public:
     VkCommandBuffer recordCommands(uint32_t bufferIdx, VkExtent2D extent2D);
 
     void recreate(const UIContext &ctx);
-
-    inline void setUIOptions(const UIOptions &uiOptions) { options = uiOptions; }
 
 private:
     VkCommandBuffer beginSingleTimeCommands(VkCommandPool cmdPool) const;
@@ -68,7 +67,7 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const;
 
     UIContext context = {};
-    UIOptions options = { .rotate = false, .cam = Camera() };
+    UIOptions options = { .rotate = false, .camPosition = glm::vec3(2.0f), .camLookAt = glm::vec3(0.0f) };
 
     VkRenderPass renderPass = {};
     VkDescriptorPool descriptorPool = {};

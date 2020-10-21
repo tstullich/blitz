@@ -28,10 +28,15 @@ void blitz::UserInterface::draw() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::Text("Camera Position - X: %.4f Y: %.4f Z: %.4f", options.cam.model[3][0], options.cam.model[3][1], options.cam.model[3][2]);
+    if (ImGui::CollapsingHeader("Camera")) {
+        ImGui::Text("Position (X: %.4f Y: %.4f Z: %.4f)", options.camPosition[0], options.camPosition[1], options.camPosition[2]);
 
-    //const std::array<float, 5> values = { 0.2, 1.0, 0.4, 0.4, 0.3 };
-    //ImGui::PlotLines("Frame Times", values.data(), values.size());
+        ImGui::InputFloat("X", &options.camPosition[0], 0.1f, 2.0f, "%.4f");
+        ImGui::InputFloat("Y", &options.camPosition[1], 0.1f, 2.0f, "%.4f");
+        ImGui::InputFloat("Z", &options.camPosition[2], 0.1f, 2.0f, "%.4f");
+
+        ImGui::Text("Look At (X: %.4f Y: %.4f Z: %.4f)", options.camLookAt[0], options.camLookAt[1], options.camLookAt[2]);
+    }
 
     ImGui::Checkbox("Rotate Object", &options.rotate);
 
