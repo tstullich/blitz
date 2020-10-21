@@ -16,7 +16,12 @@ starring this repository or on on the blog of my [website](https://tstullich.git
 - [ ] Physically-based lighting
 - [ ] Deferred shading
 
-## Screenshot(s)
-![An image of a quad being rendered through vertex indices](https://i.imgur.com/aqgoO4Q.png)
+## Progress Screenshots
+![An image of a model with diffuse shading and a single point light](https://i.imgur.com/bYpgoRl.png)
+An image of a model with diffuse shading and a single point light
 
 ![An image of a cube rendered with a texture](https://i.imgur.com/5OazHcA.png)
+The first cube rendered with texture support
+
+![An image of a quad being rendered through vertex indices](https://i.imgur.com/aqgoO4Q.png)
+The very first quad that was rendered
