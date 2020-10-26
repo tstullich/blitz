@@ -17,7 +17,7 @@ starring this repository or on on the blog of my [website](https://tstullich.git
 - [ ] Deferred shading
 
 ## Progress Screenshots
-![An image of a model with diffuse shading and a single point light](https://i.imgur.com/bYpgoRl.png)
+![An image of a model with diffuse shading and a single point light](https://i.imgur.com/FMQnDi1.png)
 An image of a model with diffuse shading and a single point light
 
 ![An image of a cube rendered with a texture](https://i.imgur.com/5OazHcA.png)
