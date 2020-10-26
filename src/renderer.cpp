@@ -196,7 +196,7 @@ void blitz::Renderer::createCommandBuffers() {
 
         // Set the clear color value to black
         std::array<VkClearValue, 2> clearValues = {};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clearValues[0].color = { 0.5f, 0.5f, 0.5f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 }; // Vulkan depth stencil range = [0, 1]
 
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -875,6 +875,12 @@ blitz::UserInterface::UIContext blitz::Renderer::createUIContext() {
     context.imageCount = swapchain.getImageCount();
     context.graphicsFamilyIndex = queueIndices.graphicsFamilyIndex;
     context.swapchain = swapchain;
+    context.camera = scene.camera;
+    context.yFov = scene.camYFov;
+    auto extent = swapchain.getExtent();
+    context.aspectRatio = static_cast<float>(extent.width) / extent.height;
+    context.zNear = scene.camZNear;
+    context.zFar = scene.camZFar;
 
     return context;
 }
@@ -883,7 +889,7 @@ void blitz::Renderer::createUniformBuffers() {
     // Create a uniform buffer for our camera parameters
     uniformBuffers.resize(swapchain.getImagesSize());
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
-        uniformBuffers[i].create(createBufferContext(), cam);
+        uniformBuffers[i].create(createBufferContext(), scene.camera);
     }
 }
 
@@ -1190,8 +1196,8 @@ void blitz::Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int
 }
 
 void blitz::Renderer::loadScene() {
-    cam = Camera(static_cast<float>(windowWidth) / windowHeight);
-    scene = Scene("models/helmet/SciFiHelmet.gltf");
+    //scene = Scene("models/helmet/SciFiHelmet.gltf");
+    scene = Scene("models/helmet-2.0/helmet.gltf", static_cast<float>(windowWidth) / windowHeight);
 }
 
 VkFormat blitz::Renderer::pickDepthFormat() {
@@ -1405,17 +1411,15 @@ void blitz::Renderer::updateUniformBuffer(size_t bufferIdx) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    auto extent = swapchain.getExtent();
     auto options = ui.getOptions();
     if (options.rotate) {
-        cam.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        scene.camera.setModelMatrix(glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
     }
-    cam.view = glm::lookAt(options.camPosition, options.camLookAt, glm::vec3(0.0f, 0.0f, 1.0f));
-    cam.proj = glm::perspective(glm::radians(60.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
-    cam.proj[1][1] *= -1;
+    scene.camera.setViewMatrix(options.camPosition, options.camLookAt);
+    scene.camera.setProjectionMatrix(glm::radians(options.yFov), options.aspectRatio, options.zNear, options.zFar);
 
     void* data;
-    vkMapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory(), 0, sizeof(cam), 0, &data);
-    memcpy(data, &cam, sizeof(cam));
+    vkMapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory(), 0, sizeof(scene.camera), 0, &data);
+    memcpy(data, &scene.camera, sizeof(scene.camera));
     vkUnmapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory());
 }

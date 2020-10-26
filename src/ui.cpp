@@ -36,6 +36,11 @@ void blitz::UserInterface::draw() {
         ImGui::InputFloat("Z", &options.camPosition[2], 0.1f, 2.0f, "%.4f");
 
         ImGui::Text("Look At (X: %.4f Y: %.4f Z: %.4f)", options.camLookAt[0], options.camLookAt[1], options.camLookAt[2]);
+
+        ImGui::Text("Field of View: %.2f", options.yFov);
+        ImGui::Text("Aspect Ratio: %.2f", options.aspectRatio);
+        ImGui::Text("Near Plane: %.2f", options.zNear);
+        ImGui::Text("Far Plane: %.2f", options.zFar);
     }
 
     ImGui::Checkbox("Rotate Object", &options.rotate);
@@ -47,6 +52,12 @@ void blitz::UserInterface::draw() {
 
 void blitz::UserInterface::init(const UIContext &ctx) {
     context = ctx;
+    options.camPosition = glm::vec3(context.camera.view[3][0], context.camera.view[3][1], context.camera.view[3][2]);
+    options.camLookAt = glm::vec3(0.0f);
+    options.yFov = glm::degrees(ctx.yFov);
+    options.zNear = ctx.zNear;
+    options.zFar = ctx.zFar;
+    options.aspectRatio = ctx.aspectRatio;
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -275,6 +286,8 @@ void blitz::UserInterface::recreate(const UIContext &ctx) {
     cleanupResources();
 
     context = ctx;
+    options.camPosition = glm::vec3(context.camera.model[3][0], context.camera.model[3][1], context.camera.model[3][2]);
+    options.camLookAt = glm::vec3(0.0f);
 
     ImGui_ImplVulkan_SetMinImageCount(context.imageCount);
     createCommandBuffers();

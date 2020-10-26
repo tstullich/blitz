@@ -250,8 +250,6 @@ private:
 
     UserInterface ui;
 
-    Camera cam;
-
     Scene scene;
 
     bool framebufferResized = false;

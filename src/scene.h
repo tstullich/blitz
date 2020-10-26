@@ -8,6 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include "camera.h"
 #include "gltfloader.h"
 #include "image.h"
 #include "vertex.h"
@@ -16,25 +17,35 @@ namespace blitz {
 struct Scene {
     Scene() = default;
 
-    explicit Scene(const std::string &filePath);
+    // TODO Remove the aspectRatio parameter here
+    explicit Scene(const std::string &filePath, float aspectRatio);
 
-    //void loadCamera(tinygltf::Model &model, tinygltf::Node &node);
+    void loadCamera(tinygltf::Model &model, tinygltf::Camera &cam, glm::mat4 &transform);
 
-    void loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh);
+    void loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 &transform);
 
     void loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive &primitive);
 
     void loadMeshIndices(tinygltf::Model &model, tinygltf::Primitive &primitive);
 
-    void loadNode(tinygltf::Model &mode, tinygltf::Node &node);
+    void loadNode(tinygltf::Model &mode, tinygltf::Node &node, glm::mat4 &transform);
 
-    void loadScene(const std::string &filePath);
+    void loadScene(const std::string &filePath, float aspectRatio);
+
+    static glm::mat4 loadTransform(const tinygltf::Node &node);
 
     void loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive);
 
     std::vector<Vertex> vertices = {};
     std::vector<uint32_t> vertIndices = {};
+
     tinygltf::Image textureImage;
-    tinygltf::Sampler sampler;
+
+    // TODO Figure out a better way to store these values
+    Camera camera;
+    float camYFov;
+    float camAspectRatio;
+    float camZNear;
+    float camZFar;
 };
 } // namespace blitz

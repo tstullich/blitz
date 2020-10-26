@@ -1,51 +1,41 @@
 #include "scene.h"
 
-blitz::Scene::Scene(const std::string &filePath) {
-    loadScene(filePath);
+blitz::Scene::Scene(const std::string &filePath, float aspectRatio) {
+    loadScene(filePath, aspectRatio);
 }
 
-//void blitz::Scene::loadCamera(tinygltf::Model &model, tinygltf::Node &node) {
-//    // TODO Figure out why this does not work!
-//    auto translation = glm::mat4(1.0f);
-//    if (!node.translation.empty()) {
-//        auto translationVec = glm::vec3(node.translation[0], node.translation[1], node.translation[2]);
-//        translation = glm::translate(translation, translationVec);
-//    }
-//
-//    auto rotation = glm::mat4(1.0f);
-//    if (!node.rotation.empty()) {
-//        auto rotationQuat = glm::quat(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
-//        rotation = glm::mat4_cast(rotationQuat);
-//    }
-//
-//    auto scale = glm::mat4(1.0f);
-//    if (!node.scale.empty()) {
-//        // Unlikely that the camera node will have a scale vector
-//        // but keeping it just in case
-//        auto scalingVec = glm::vec3(node.scale[0], node.scale[1], node.scale[2]);
-//        scale = glm::scale(scale, scalingVec);
-//    }
-//
-//    cam.model = translation * rotation * scale;
-//}
+void blitz::Scene::loadCamera(tinygltf::Model &model, tinygltf::Camera &cam, glm::mat4 &transform) {
+    // Assuming camera is perspective
+    camYFov = cam.perspective.yfov;
+    camAspectRatio = cam.perspective.aspectRatio;
+    camZNear = cam.perspective.znear;
+    camZFar = cam.perspective.zfar;
 
-void blitz::Scene::loadNode(tinygltf::Model &model, tinygltf::Node &node) {
+    camera.setModelMatrix(glm::mat4(1.0f));
+    camera.view = transform;
+    camera.setProjectionMatrix(camYFov, camAspectRatio, camZNear, camZFar);
+}
+
+void blitz::Scene::loadNode(tinygltf::Model &model, tinygltf::Node &node, glm::mat4 &transform) {
+    auto localTransform = loadTransform(node);
+    transform *= localTransform;
+
     if (node.mesh >= 0 && node.mesh < model.meshes.size()) {
-        loadMesh(model, model.meshes[node.mesh]);
+        loadMesh(model, model.meshes[node.mesh], transform);
     }
 
     // TODO Check if this is the best way to setup the camera
-    //if (node.name == "Camera") {
-    //    loadCamera(model, node);
-    //}
+    if (node.camera >= 0 && node.camera < model.cameras.size()) {
+        loadCamera(model, model.cameras[node.camera], transform);
+    }
 
     // Parse child nodes
     for (int i : node.children) {
-        loadNode(model, model.nodes[i]);
+        loadNode(model, model.nodes[i], transform);
     }
 }
 
-void blitz::Scene::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh) {
+void blitz::Scene::loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 &transform) {
     for (auto primitive : mesh.primitives) {
         if (primitive.indices >= 0) {
             // Mesh supports indexing. Load the indices
@@ -87,16 +77,42 @@ void blitz::Scene::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive 
     if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
         auto tex = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
         textureImage = model.images[tex.source];
-        sampler = model.samplers[tex.sampler];
     }
 }
 
-void blitz::Scene::loadScene(const std::string &filePath) {
+void blitz::Scene::loadScene(const std::string &filePath, float aspectRatio) {
     auto model = GLTFLoader::load(filePath);
     auto scene = model.scenes[model.defaultScene];
+    camera = Camera(aspectRatio); // Set default values for the camera
     for (int nodeId : scene.nodes) {
-        loadNode(model, model.nodes[nodeId]);
+        glm::mat4 transform(1.0f);
+        loadNode(model, model.nodes[nodeId], transform);
     }
+}
+
+glm::mat4 blitz::Scene::loadTransform(const tinygltf::Node &node) {
+    // TODO Figure out why this does not work!
+    auto translate = glm::mat4(1.0f);
+    if (!node.translation.empty()) {
+        auto translationVec = glm::vec3(node.translation[0], node.translation[1], node.translation[2]);
+        translate = glm::translate(translate, translationVec);
+    }
+
+    auto rotate = glm::mat4(1.0f);
+    if (!node.rotation.empty()) {
+        auto rotationQuat = glm::quat(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
+        rotate = glm::mat4_cast(rotationQuat);
+    }
+
+    auto scale = glm::mat4(1.0f);
+    if (!node.scale.empty()) {
+        // Unlikely that the camera node will have a scale vector
+        // but keeping it just in case
+        auto scalingVec = glm::vec3(node.scale[0], node.scale[1], node.scale[2]);
+        scale = glm::scale(scale, scalingVec);
+    }
+
+    return translate * rotate * scale;
 }
 
 void blitz::Scene::loadVertexAttributes(tinygltf::Model &model, tinygltf::Mesh &mesh, tinygltf::Primitive &primitive) {

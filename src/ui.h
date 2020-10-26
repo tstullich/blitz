@@ -27,12 +27,22 @@ public:
         uint32_t imageCount;
         uint32_t graphicsFamilyIndex;
         Swapchain swapchain;
+        Camera camera;
+        // TODO Refactor this
+        float yFov;
+        float aspectRatio;
+        float zNear;
+        float zFar;
     };
 
     struct UIOptions {
-        alignas(16) bool rotate;
+        bool rotate;
         glm::vec3 camPosition;
         glm::vec3 camLookAt;
+        float yFov;
+        float aspectRatio;
+        float zNear;
+        float zFar;
     };
 
     UserInterface() = default;
@@ -67,7 +77,7 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) const;
 
     UIContext context = {};
-    UIOptions options = { .rotate = false, .camPosition = glm::vec3(2.0f), .camLookAt = glm::vec3(0.0f) };
+    UIOptions options = { .rotate = false };
 
     VkRenderPass renderPass = {};
     VkDescriptorPool descriptorPool = {};
