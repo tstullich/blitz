@@ -43,9 +43,22 @@ void blitz::UserInterface::draw() {
         ImGui::Text("Far Plane: %.2f", options.zFar);
     }
 
+    if (ImGui::CollapsingHeader("Light(s)")) {
+        ImGui::Text("Position (X: %.4f Y: %.4f Z: %.4f)", options.lightPosition[0], options.lightPosition[1], options.lightPosition[2]);
+
+        ImGui::InputFloat("X", &options.lightPosition[0], 0.1f, 2.0f, "%.4f");
+        ImGui::InputFloat("Y", &options.lightPosition[1], 0.1f, 2.0f, "%.4f");
+        ImGui::InputFloat("Z", &options.lightPosition[2], 0.1f, 2.0f, "%.4f");
+
+        ImGuiColorEditFlags colorPickerFlags = ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_InputRGB;
+        ImGui::ColorEdit3("Emissive Color##1", (float*)&options.lightEmissiveColor, colorPickerFlags);
+
+        //ImGui::ColorPicker3()
+    }
+
     ImGui::Checkbox("Rotate Object", &options.rotate);
 
-    //ImGui::ShowDemoWindow();
+    ImGui::ShowDemoWindow();
 
     ImGui::Render();
 }
@@ -58,6 +71,8 @@ void blitz::UserInterface::init(const UIContext &ctx) {
     options.zNear = ctx.zNear;
     options.zFar = ctx.zFar;
     options.aspectRatio = ctx.aspectRatio;
+    options.lightPosition = ctx.lightPosition;
+    options.lightEmissiveColor = ctx.lightEmissiveColor;
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

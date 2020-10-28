@@ -16,6 +16,11 @@ void blitz::Scene::loadCamera(tinygltf::Model &model, tinygltf::Camera &cam, glm
     camera.setProjectionMatrix(camYFov, camAspectRatio, camZNear, camZFar);
 }
 
+void blitz::Scene::loadLight(tinygltf::Model &model, glm::mat4 &transform) {
+    light.position = glm::vec3(transform[3][0], transform[3][1], transform[3][2]);
+    light.emissiveColor = glm::vec3(1.0f);
+}
+
 void blitz::Scene::loadNode(tinygltf::Model &model, tinygltf::Node &node, glm::mat4 &transform) {
     auto localTransform = loadTransform(node);
     transform *= localTransform;
@@ -27,6 +32,12 @@ void blitz::Scene::loadNode(tinygltf::Model &model, tinygltf::Node &node, glm::m
     // TODO Check if this is the best way to setup the camera
     if (node.camera >= 0 && node.camera < model.cameras.size()) {
         loadCamera(model, model.cameras[node.camera], transform);
+    }
+
+    // This is just for basic point lights. Area lights should have a mesh
+    // node associated with it
+    if (node.name == "Light") {
+        loadLight(model, transform);
     }
 
     // Parse child nodes

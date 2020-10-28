@@ -125,8 +125,6 @@ private:
                      VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
                      VkDeviceMemory &imageMemory);
 
-    VkImageView createImageView(VkImage image, VkFormat format);
-
     void createIndexBuffer();
 
     void createInstance();
@@ -198,6 +196,10 @@ private:
 
     void transitionImageLayout(const Image &image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
+    void updateCameraBuffers(const size_t &bufferIdx);
+
+    void updateLightBuffers(const size_t &bufferIdx);
+
     void updateUniformBuffer(size_t bufferIdx);
 
     uint32_t windowWidth = 1920;
@@ -219,7 +221,8 @@ private:
     VertexBuffer vertexBuffer = {};
     IndexBuffer vertIndexBuffer = {};
 
-    std::vector<UniformBuffer> uniformBuffers;
+    std::vector<UniformBuffer> cameraBuffers;
+    std::vector<UniformBuffer> lightBuffers;
 
     Texture texture;
     VkSampler textureSampler = {};

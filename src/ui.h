@@ -33,6 +33,8 @@ public:
         float aspectRatio;
         float zNear;
         float zFar;
+        glm::vec3 lightPosition;
+        glm::vec3 lightEmissiveColor;
     };
 
     struct UIOptions {
@@ -43,6 +45,9 @@ public:
         float aspectRatio;
         float zNear;
         float zFar;
+
+        glm::vec3 lightPosition;
+        glm::vec3 lightEmissiveColor;
     };
 
     UserInterface() = default;

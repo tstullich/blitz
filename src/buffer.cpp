@@ -139,7 +139,12 @@ void blitz::IndexBuffer::create(const BufferContext &ctx, const std::vector<uint
 
 void blitz::UniformBuffer::create(const BufferContext &ctx, const Camera &camera) {
     VkDeviceSize bufferSize = sizeof(Camera);
+    allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, deviceMemory);
+}
 
+void blitz::UniformBuffer::create(const BufferContext &ctx, const Light &light) {
+    VkDeviceSize bufferSize = sizeof(Light);
     allocateMemory(ctx, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, deviceMemory);
 }

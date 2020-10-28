@@ -20,7 +20,11 @@ blitz::Renderer::~Renderer() {
     vertexBuffer.cleanup(logicalDevice);
     vertIndexBuffer.cleanup(logicalDevice);
 
-    for (auto& uniformBuffer : uniformBuffers) {
+    for (auto& uniformBuffer : cameraBuffers) {
+        uniformBuffer.cleanup(logicalDevice);
+    }
+
+    for (auto& uniformBuffer : lightBuffers) {
         uniformBuffer.cleanup(logicalDevice);
     }
 
@@ -121,7 +125,8 @@ void blitz::Renderer::cleanupSwapchain() {
     depthImage.cleanup(logicalDevice);
 
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
-        uniformBuffers[i].cleanup(logicalDevice);
+        cameraBuffers[i].cleanup(logicalDevice);
+        lightBuffers[i].cleanup(logicalDevice);
     }
 
     vkFreeCommandBuffers(logicalDevice, commandPool, static_cast<uint32_t>(commandBuffers.size()),
@@ -263,15 +268,19 @@ void blitz::Renderer::createDepthResources() {
 
 // TODO Check if this is used by Dear IMGUI and how to move it
 void blitz::Renderer::createDescriptorPool() {
-    VkDescriptorPoolSize uboPoolSize = {};
-    uboPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboPoolSize.descriptorCount = static_cast<uint32_t>(swapchain.getImagesSize());
+    VkDescriptorPoolSize camPoolSize = {};
+    camPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    camPoolSize.descriptorCount = static_cast<uint32_t>(swapchain.getImagesSize());
+
+    VkDescriptorPoolSize lightPoolSize = {};
+    lightPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    lightPoolSize.descriptorCount = static_cast<uint32_t>(swapchain.getImagesSize());
 
     VkDescriptorPoolSize texturePoolSize = {};
     texturePoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     texturePoolSize.descriptorCount = static_cast<uint32_t>(swapchain.getImagesSize());
 
-    std::array<VkDescriptorPoolSize, 2> poolSizes = { uboPoolSize, texturePoolSize };
+    std::array<VkDescriptorPoolSize, 3> poolSizes = { camPoolSize, lightPoolSize, texturePoolSize };
 
     VkDescriptorPoolCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -285,20 +294,26 @@ void blitz::Renderer::createDescriptorPool() {
 }
 
 void blitz::Renderer::createDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uboBinding = {};
-    uboBinding.binding = 0;
-    uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboBinding.descriptorCount = 1;
-    uboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    VkDescriptorSetLayoutBinding camBinding = {};
+    camBinding.binding = 0;
+    camBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    camBinding.descriptorCount = 1;
+    camBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding lightBinding = {};
+    lightBinding.binding = 1;
+    lightBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    lightBinding.descriptorCount = 1;
+    lightBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutBinding textureBinding = {};
-    textureBinding.binding = 1;
+    textureBinding.binding = 2;
     textureBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     textureBinding.descriptorCount = 1;
     textureBinding.pImmutableSamplers = nullptr;
     textureBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 2> descriptorLayouts = {uboBinding, textureBinding};
+    std::array<VkDescriptorSetLayoutBinding, 3> descriptorLayouts = {camBinding, lightBinding, textureBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
     layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -324,17 +339,22 @@ void blitz::Renderer::createDescriptorSets() {
     }
 
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
-        VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = uniformBuffers[i].getBuffer();
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(Camera);
+        VkDescriptorBufferInfo camBufferInfo = {};
+        camBufferInfo.buffer = cameraBuffers[i].getBuffer();
+        camBufferInfo.offset = 0;
+        camBufferInfo.range = sizeof(Camera);
+
+        VkDescriptorBufferInfo lightBufferInfo = {};
+        lightBufferInfo.buffer = lightBuffers[i].getBuffer();
+        lightBufferInfo.offset = 0;
+        lightBufferInfo.range = sizeof(Light);
 
         VkDescriptorImageInfo imageInfo = {};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.imageView = texture.getImageView();
         imageInfo.sampler = textureSampler;
 
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
+        std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
 
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
@@ -342,15 +362,23 @@ void blitz::Renderer::createDescriptorSets() {
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pBufferInfo = &camBufferInfo;
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = descriptorSets[i];
         descriptorWrites[1].dstBinding = 1;
         descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
+        descriptorWrites[1].pBufferInfo = &lightBufferInfo;
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = descriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pImageInfo = &imageInfo;
 
         vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
@@ -881,15 +909,19 @@ blitz::UserInterface::UIContext blitz::Renderer::createUIContext() {
     context.aspectRatio = static_cast<float>(extent.width) / extent.height;
     context.zNear = scene.camZNear;
     context.zFar = scene.camZFar;
+    context.lightPosition = scene.light.position;
+    context.lightEmissiveColor = scene.light.emissiveColor;
 
     return context;
 }
 
 void blitz::Renderer::createUniformBuffers() {
-    // Create a uniform buffer for our camera parameters
-    uniformBuffers.resize(swapchain.getImagesSize());
+    // Create a uniform buffer for our camera and light parameters
+    cameraBuffers.resize(swapchain.getImagesSize());
+    lightBuffers.resize(swapchain.getImagesSize());
     for (size_t i = 0; i < swapchain.getImagesSize(); ++i) {
-        uniformBuffers[i].create(createBufferContext(), scene.camera);
+        cameraBuffers[i].create(createBufferContext(), scene.camera);
+        lightBuffers[i].create(createBufferContext(), scene.light);
     }
 }
 
@@ -1196,7 +1228,6 @@ void blitz::Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int
 }
 
 void blitz::Renderer::loadScene() {
-    //scene = Scene("models/helmet/SciFiHelmet.gltf");
     scene = Scene("models/helmet-2.0/helmet.gltf", static_cast<float>(windowWidth) / windowHeight);
 }
 
@@ -1405,7 +1436,8 @@ void blitz::Renderer::transitionImageLayout(const Image &image, VkImageLayout ol
     endSingleTimeCommands(commandBuffer);
 }
 
-void blitz::Renderer::updateUniformBuffer(size_t bufferIdx) {
+#include <iostream>
+void blitz::Renderer::updateCameraBuffers(const size_t &bufferIdx) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -1417,9 +1449,29 @@ void blitz::Renderer::updateUniformBuffer(size_t bufferIdx) {
     }
     scene.camera.setViewMatrix(options.camPosition, options.camLookAt);
     scene.camera.setProjectionMatrix(glm::radians(options.yFov), options.aspectRatio, options.zNear, options.zFar);
+    scene.camera.position = options.camPosition;
 
+    auto camSize = sizeof(scene.camera);
     void* data;
-    vkMapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory(), 0, sizeof(scene.camera), 0, &data);
-    memcpy(data, &scene.camera, sizeof(scene.camera));
-    vkUnmapMemory(logicalDevice, uniformBuffers[bufferIdx].getDeviceMemory());
+    vkMapMemory(logicalDevice, cameraBuffers[bufferIdx].getDeviceMemory(), 0, camSize, 0, &data);
+    memcpy(data, &scene.camera, camSize);
+    vkUnmapMemory(logicalDevice, cameraBuffers[bufferIdx].getDeviceMemory());
+}
+
+void blitz::Renderer::updateLightBuffers(const size_t &bufferIdx) {
+    auto options = ui.getOptions();
+
+    scene.light.position = options.lightPosition;
+    scene.light.emissiveColor = options.lightEmissiveColor;
+
+    auto lightSize = sizeof(scene.light);
+    void* data;
+    vkMapMemory(logicalDevice, lightBuffers[bufferIdx].getDeviceMemory(), 0, lightSize, 0, &data);
+    memcpy(data, &scene.light, lightSize);
+    vkUnmapMemory(logicalDevice, lightBuffers[bufferIdx].getDeviceMemory());
+}
+
+void blitz::Renderer::updateUniformBuffer(size_t bufferIdx) {
+    updateCameraBuffers(bufferIdx);
+    updateLightBuffers(bufferIdx);
 }

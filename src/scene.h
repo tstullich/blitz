@@ -11,6 +11,7 @@
 #include "camera.h"
 #include "gltfloader.h"
 #include "image.h"
+#include "light.h"
 #include "vertex.h"
 
 namespace blitz {
@@ -21,6 +22,8 @@ struct Scene {
     explicit Scene(const std::string &filePath, float aspectRatio);
 
     void loadCamera(tinygltf::Model &model, tinygltf::Camera &cam, glm::mat4 &transform);
+
+    void loadLight(tinygltf::Model &model, glm::mat4 &transform);
 
     void loadMesh(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 &transform);
 
@@ -47,5 +50,7 @@ struct Scene {
     float camAspectRatio;
     float camZNear;
     float camZFar;
+
+    Light light;
 };
 } // namespace blitz

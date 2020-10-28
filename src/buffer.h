@@ -8,6 +8,7 @@
 #include "tiny_gltf.h"
 
 #include "camera.h"
+#include "light.h"
 #include "vertex.h"
 
 // TODO Templatize this logic since vertex and index buffer creation is almost identical
@@ -61,6 +62,8 @@ public:
     UniformBuffer() = default;
 
     void create(const BufferContext &ctx, const Camera &camera);
+
+    void create(const BufferContext &ctx, const Light &camera);
 };
 
 class TextureBuffer : public Buffer {

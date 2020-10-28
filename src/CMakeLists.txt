@@ -16,7 +16,8 @@ SET(SRCS main.cpp
         image.h
         image.cpp
         scene.cpp
-        scene.h)
+        scene.h
+        light.h)
 
 add_executable(${PROJECT_NAME} ${SRCS})
 

@@ -2,6 +2,7 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -10,8 +11,9 @@ struct Camera {
     Camera() = default;
 
     explicit Camera(float aspectRatio) {
+        glm::vec3 position = glm::vec3(1.0f);
         model = glm::mat4(1.0f); // Center model where it is in the scene
-        view = glm::lookAt(glm::vec3(1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        view = glm::lookAt(position, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         proj = glm::perspective(glm::radians(60.0f), aspectRatio, 0.1f, 100.0f);
         proj[1][1] *= -1;
     }
@@ -20,7 +22,8 @@ struct Camera {
         model = modelMatrix;
     }
 
-    void setViewMatrix (const glm::vec3 &position, const glm::vec3 &lookAt) {
+    void setViewMatrix (const glm::vec3 &eye, const glm::vec3 &lookAt) {
+        glm::vec3 position = eye;
         view = glm::lookAt(position, lookAt, glm::vec3(0.0f, 1.0f, 0.0f));
     }
 
@@ -30,8 +33,9 @@ struct Camera {
         proj = projection;
     }
 
-    glm::mat4 model = {};
-    glm::mat4 view = {};
-    glm::mat4 proj = {};
+    alignas(16) glm::mat4 model = {};
+    alignas(16) glm::mat4 view = {};
+    alignas(16) glm::mat4 proj = {};
+    alignas(16) glm::vec3 position = {};
 };
 } // namespace blitz
