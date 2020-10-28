@@ -1,8 +1,35 @@
-# blitz (Work in progress)
+# blitz
 A deferred renderer written in C++ and Vulkan. This will be the repository for a deferred
 renderer that I am currently writing. Follow along with the development by
 starring this repository or on on the blog of my [website](https://tstullich.github.io/posts).
 
+## Installation
+### Dependencies
+
+To install you will need the following tools:
+
+- CMake 3.16
+- A C++ compiler toolchain with support for C++14
+
+Make sure to have the following libraries installed and visible to CMake
+
+- Vulkan SDK 1.2
+- GLM 0.9.9.7
+- GLFW 3.3
+
+### Building
+
+To build execute the following commands from the root of the repository
+
+```
+mkdir build
+cd build
+cmake ..
+make && make install
+```
+
+The `blitz` binary should then be found in the `bin` folder from the repository root which
+can then be executed to run the renderer.
 
 ## Features
 - [x] Indexed draw mode
