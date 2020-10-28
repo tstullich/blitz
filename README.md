@@ -9,6 +9,7 @@ starring this repository or on on the blog of my [website](https://tstullich.git
 - [x] Texture support w/ mip map creation at runtime
 - [x] Depth stencil testing
 - [x] Multisampled anti-aliasing
+- [x] Blinn-Phong shading model
 
 ## Future Work 
 - [ ] UI improvements
