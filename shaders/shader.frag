@@ -5,6 +5,7 @@ layout(binding = 0) uniform Camera {
     mat4 model;
     mat4 view;
     mat4 projection;
+    mat4 normalTransform;
     vec3 position;
 } cam;
 
@@ -48,7 +49,7 @@ void main() {
 
     vec3 distanceToLight = light.position - fragPosition;
     float d = length(distanceToLight);
-    float attenuation = clamp( 10.0 / d, 0.0, 1.0);
+    float attenuation = clamp(10.0 / d, 0.0, 1.0);
 
     vec3 finalColor = attenuation * clamp(diff + spec, 0.0, 1.0);
     outColor = vec4(finalColor, 1.0); // Ignore the alpha component for now

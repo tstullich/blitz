@@ -1440,12 +1440,13 @@ void blitz::Renderer::transitionImageLayout(const Image &image, VkImageLayout ol
 void blitz::Renderer::updateCameraBuffers(const size_t &bufferIdx) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
     auto options = ui.getOptions();
     if (options.rotate) {
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
         scene.camera.setModelMatrix(glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+        scene.camera.setNormalTransform(glm::transpose(glm::inverse(scene.camera.model)));
     }
     scene.camera.setViewMatrix(options.camPosition, options.camLookAt);
     scene.camera.setProjectionMatrix(glm::radians(options.yFov), options.aspectRatio, options.zNear, options.zFar);

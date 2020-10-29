@@ -28,6 +28,8 @@ void blitz::UserInterface::draw() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    ImGui::Begin("Settings");
+
     if (ImGui::CollapsingHeader("Camera")) {
         ImGui::Text("Position (X: %.4f Y: %.4f Z: %.4f)", options.camPosition[0], options.camPosition[1], options.camPosition[2]);
 
@@ -56,9 +58,14 @@ void blitz::UserInterface::draw() {
         //ImGui::ColorPicker3()
     }
 
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::Text("Average Framerate: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
     ImGui::Checkbox("Rotate Object", &options.rotate);
 
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
+
+    ImGui::End();
 
     ImGui::Render();
 }
