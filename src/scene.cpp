@@ -93,9 +93,11 @@ void blitz::Scene::loadMeshMaterial(tinygltf::Model &model, tinygltf::Primitive 
 
 void blitz::Scene::loadScene(const std::string &filePath, float aspectRatio) {
     auto model = GLTFLoader::load(filePath);
-    auto scene = model.scenes[model.defaultScene];
+    auto loadedScene = model.scenes[model.defaultScene];
     camera = Camera(aspectRatio); // Set default values for the camera
-    for (int nodeId : scene.nodes) {
+    light = Light { glm::vec3(3.0f), glm::vec3(1.0f) };
+    camAspectRatio = aspectRatio;
+    for (int nodeId : loadedScene.nodes) {
         glm::mat4 transform(1.0f);
         loadNode(model, model.nodes[nodeId], transform);
     }

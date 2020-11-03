@@ -46,10 +46,10 @@ struct Scene {
 
     // TODO Figure out a better way to store these values
     Camera camera;
-    float camYFov;
+    float camYFov = glm::radians(60.0f);
     float camAspectRatio;
-    float camZNear;
-    float camZFar;
+    float camZNear = 0.1f;
+    float camZFar = 100.0f;
 
     Light light;
 };

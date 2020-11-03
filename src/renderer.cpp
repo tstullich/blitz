@@ -1228,7 +1228,7 @@ void blitz::Renderer::keyCallback(GLFWwindow *window, int key, int scancode, int
 }
 
 void blitz::Renderer::loadScene() {
-    scene = Scene("models/helmet-2.0/helmet.gltf", static_cast<float>(windowWidth) / windowHeight);
+    scene = Scene("models/helmet/helmet.gltf", static_cast<float>(windowWidth) / windowHeight);
 }
 
 VkFormat blitz::Renderer::pickDepthFormat() {
