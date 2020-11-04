@@ -12,7 +12,6 @@ struct Camera {
 
     explicit Camera(float aspectRatio) {
         position = glm::vec3(1.0f);
-        normalTransform = glm::mat4(1.0f);
         model = glm::mat4(1.0f); // Center model where it is in the scene
         view = glm::lookAt(position, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         proj = glm::perspective(glm::radians(60.0f), aspectRatio, 0.1f, 100.0f);
@@ -21,10 +20,6 @@ struct Camera {
 
     void setModelMatrix(const glm::mat4 &modelMatrix) {
         model = modelMatrix;
-    }
-
-    void setNormalTransform(const glm::mat4 &normalTransf) {
-        normalTransform = normalTransf;
     }
 
     void setViewMatrix (const glm::vec3 &eye, const glm::vec3 &lookAt) {
@@ -41,7 +36,6 @@ struct Camera {
     alignas(16) glm::mat4 model = {};
     alignas(16) glm::mat4 view = {};
     alignas(16) glm::mat4 proj = {};
-    alignas(16) glm::mat4 normalTransform = {};
     alignas(16) glm::vec3 position = {};
 };
 } // namespace blitz

@@ -41,12 +41,18 @@ blitz::Renderer::~Renderer() {
     vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(logicalDevice, graphicsPipelineLayout, nullptr);
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
+    vkDestroyRenderPass(logicalDevice, offscreenRenderPass, nullptr);
+
+    vkDestroyFramebuffer(logicalDevice, offscreenFrameBuffer, nullptr);
 
     swapchain.cleanup();
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 
     vkDestroySampler(logicalDevice, textureSampler, nullptr);
     texture.cleanup(logicalDevice);
+
+    vkDestroySampler(logicalDevice, colorSampler, nullptr);
+    normalImage.cleanup(logicalDevice);
 
     msaaImage.cleanup(logicalDevice);
     depthImage.cleanup(logicalDevice);
@@ -384,161 +390,6 @@ void blitz::Renderer::createDescriptorSets() {
     }
 }
 
-void blitz::Renderer::createGraphicsPipeline() {
-    // Load our shader modules in from disk
-    auto vertShaderCode = ShaderLoader::load("shaders/vert.spv");
-    auto fragShaderCode = ShaderLoader::load("shaders/frag.spv");
-
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-    // Get an input binding
-    auto vertexDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
-    // Create information struct for vertex input
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &vertexDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    // Create information struct about input assembly
-    // We'll be organizing our vertices in triangles and the GPU should treat the data accordingly
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
-    inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
-
-    // Create a viewport. The extent of the viewport will always be the size of the images in the swapchain
-    VkExtent2D swapchainExtent = swapchain.getExtent();
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapchainExtent.width);
-    viewport.height = static_cast<float>(swapchainExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    // Create a scissor. Any pixels outside the scissor region will be discarded
-    VkRect2D scissor = {};
-    scissor.extent = swapchainExtent;
-    scissor.offset = { 0, 0 };
-
-    VkPipelineViewportStateCreateInfo viewPortCreateInfo = {};
-    viewPortCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewPortCreateInfo.viewportCount = 1;
-    viewPortCreateInfo.pViewports = &viewport;
-    viewPortCreateInfo.scissorCount = 1;
-    viewPortCreateInfo.pScissors = &scissor;
-
-    // Configure the rasterizer
-    VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
-    rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizerCreateInfo.depthClampEnable = VK_FALSE;
-    rasterizerCreateInfo.rasterizerDiscardEnable = VK_FALSE;
-    rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizerCreateInfo.lineWidth = 1.0f;
-    rasterizerCreateInfo.depthBiasEnable = VK_FALSE;
-    rasterizerCreateInfo.depthBiasConstantFactor = 0.0f;
-    rasterizerCreateInfo.depthBiasClamp = 0.0f;
-    rasterizerCreateInfo.depthBiasSlopeFactor = 0.0f;
-
-    // Configure multisampling
-    VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = {};
-    multisamplingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisamplingCreateInfo.rasterizationSamples = msaaSamples;
-    multisamplingCreateInfo.sampleShadingEnable = VK_TRUE;
-    multisamplingCreateInfo.minSampleShading = 0.2f;
-    multisamplingCreateInfo.pSampleMask = nullptr;
-    multisamplingCreateInfo.alphaToCoverageEnable = VK_FALSE;
-    multisamplingCreateInfo.alphaToOneEnable = VK_FALSE;
-
-    // Configure Depth stencil
-    VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {};
-    depthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
-    depthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
-    depthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
-    depthStencilStateCreateInfo.minDepthBounds = 0.0f;
-    depthStencilStateCreateInfo.maxDepthBounds = 1.0f;
-    depthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // To enable need to add stencil attachment
-
-    // Configure the color blending stage
-    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    // Create color blending info
-    VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f;
-    colorBlending.blendConstants[1] = 0.0f;
-    colorBlending.blendConstants[2] = 0.0f;
-    colorBlending.blendConstants[3] = 0.0f;
-
-    // Create a pipeline layout
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-    pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutCreateInfo.setLayoutCount = 1;
-    pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
-
-    if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, nullptr,
-                               &graphicsPipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create graphics pipeline layout!");
-    }
-
-    // Create the info for our graphics pipeline. We'll add a programmable vertex and fragment shader stage
-    VkGraphicsPipelineCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    createInfo.stageCount = 2;
-    createInfo.pStages = shaderStages;
-    createInfo.pVertexInputState = &vertexInputInfo;
-    createInfo.pInputAssemblyState = &inputAssemblyInfo;
-    createInfo.pViewportState = &viewPortCreateInfo;
-    createInfo.pRasterizationState = &rasterizerCreateInfo;
-    createInfo.pMultisampleState = &multisamplingCreateInfo;
-    createInfo.pDepthStencilState = &depthStencilStateCreateInfo;
-    createInfo.pColorBlendState = &colorBlending;
-    createInfo.pDynamicState = nullptr;
-    createInfo.layout = graphicsPipelineLayout;
-    createInfo.renderPass = renderPass;
-    createInfo.subpass = 0;
-    createInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr,
-                                  &graphicsPipeline) != VK_SUCCESS) {
-        throw std::runtime_error("Unable to create graphics pipeline!");
-    }
-
-    // Cleanup our shader modules after pipeline creation
-    vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
-    vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
-}
-
 void blitz::Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                                   VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
                                   VkDeviceMemory &imageMemory) {
@@ -689,6 +540,274 @@ void blitz::Renderer::createMsaaResources() {
     auto memoryTypeIndex = pickMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     msaaImage.bindImage(logicalDevice, memoryTypeIndex, VK_IMAGE_ASPECT_COLOR_BIT);
 }
+
+void blitz::Renderer::createOffscreenRenderPass() {
+    auto swapchainExtent = swapchain.getExtent();
+
+    VkImageCreateInfo normalImageCreateInfo = {};
+    normalImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    normalImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    normalImageCreateInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    normalImageCreateInfo.extent = VkExtent3D{ swapchainExtent.width, swapchainExtent.height, 1 };
+    normalImageCreateInfo.mipLevels = 1;
+    normalImageCreateInfo.arrayLayers = 1;
+    normalImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    normalImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    normalImageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    normalImage = Image(logicalDevice, normalImageCreateInfo);
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, normalImage.getImage(), &memRequirements);
+
+    auto memoryType = pickMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    normalImage.bindImage(logicalDevice, memoryType, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    VkAttachmentDescription normalAttachmentDesc = {};
+    normalAttachmentDesc.format = normalImage.getFormat();
+    normalAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
+    normalAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    normalAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    normalAttachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    normalAttachmentDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    normalAttachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    normalAttachmentDesc.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    std::array<VkAttachmentDescription, 1> attachmentDescriptions= { normalAttachmentDesc };
+
+    VkAttachmentReference normalRef = {};
+    normalRef.attachment = 0;
+    normalRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpassDescription = {};
+    subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpassDescription.colorAttachmentCount = 1;
+    subpassDescription.pColorAttachments = &normalRef;
+
+    std::array<VkSubpassDependency, 2> dependencies = {};
+
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.pAttachments = attachmentDescriptions.data();
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpassDescription;
+    renderPassInfo.dependencyCount = 2;
+    renderPassInfo.pDependencies = dependencies.data();
+
+    if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &offscreenRenderPass) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create offscreen render pass!");
+    }
+
+    // Also create a sampler for the framebuffer
+    VkSamplerCreateInfo samplerInfo = {};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = samplerInfo.addressModeU;
+    samplerInfo.addressModeW = samplerInfo.addressModeU;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 1.0f;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+
+    if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &colorSampler) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create color sampler!");
+    }
+}
+
+void blitz::Renderer::createOffscreenFramebuffer() {
+    auto swapchainExtent = swapchain.getExtent();
+
+    std::array<VkImageView, 1> imageViews = { normalImage.getView() };
+
+    VkFramebufferCreateInfo framebufferCreateInfo = {};
+    framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferCreateInfo.renderPass = offscreenRenderPass;
+    framebufferCreateInfo.width = swapchainExtent.width;
+    framebufferCreateInfo.height = swapchainExtent.height;
+    framebufferCreateInfo.layers = 1;
+    framebufferCreateInfo.pAttachments = imageViews.data();
+    framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(imageViews.size());
+    if (vkCreateFramebuffer(logicalDevice, &framebufferCreateInfo, nullptr, &offscreenFrameBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create offscreen framebuffer!");
+    }
+}
+
+void blitz::Renderer::createPipelines() {
+    // Load our shader modules in from disk
+    auto vertShaderCode = ShaderLoader::load("shaders/vert.spv");
+    auto fragShaderCode = ShaderLoader::load("shaders/frag.spv");
+
+    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+    // Get an input binding
+    auto vertexDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+    // Create information struct for vertex input
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &vertexDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    // Create information struct about input assembly
+    // We'll be organizing our vertices in triangles and the GPU should treat the data accordingly
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
+    inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+
+    // Create a viewport. The extent of the viewport will always be the size of the images in the swapchain
+    VkExtent2D swapchainExtent = swapchain.getExtent();
+    VkViewport viewport = {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(swapchainExtent.width);
+    viewport.height = static_cast<float>(swapchainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    // Create a scissor. Any pixels outside the scissor region will be discarded
+    VkRect2D scissor = {};
+    scissor.extent = swapchainExtent;
+    scissor.offset = { 0, 0 };
+
+    VkPipelineViewportStateCreateInfo viewPortCreateInfo = {};
+    viewPortCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewPortCreateInfo.viewportCount = 1;
+    viewPortCreateInfo.pViewports = &viewport;
+    viewPortCreateInfo.scissorCount = 1;
+    viewPortCreateInfo.pScissors = &scissor;
+
+    // Configure the rasterizer
+    VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
+    rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizerCreateInfo.depthClampEnable = VK_FALSE;
+    rasterizerCreateInfo.rasterizerDiscardEnable = VK_FALSE;
+    rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizerCreateInfo.lineWidth = 1.0f;
+    rasterizerCreateInfo.depthBiasEnable = VK_FALSE;
+    rasterizerCreateInfo.depthBiasConstantFactor = 0.0f;
+    rasterizerCreateInfo.depthBiasClamp = 0.0f;
+    rasterizerCreateInfo.depthBiasSlopeFactor = 0.0f;
+
+    // Configure multisampling
+    VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = {};
+    multisamplingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisamplingCreateInfo.rasterizationSamples = msaaSamples;
+    multisamplingCreateInfo.sampleShadingEnable = VK_TRUE;
+    multisamplingCreateInfo.minSampleShading = 0.2f;
+    multisamplingCreateInfo.pSampleMask = nullptr;
+    multisamplingCreateInfo.alphaToCoverageEnable = VK_FALSE;
+    multisamplingCreateInfo.alphaToOneEnable = VK_FALSE;
+
+    // Configure Depth stencil
+    VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {};
+    depthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
+    depthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
+    depthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
+    depthStencilStateCreateInfo.minDepthBounds = 0.0f;
+    depthStencilStateCreateInfo.maxDepthBounds = 1.0f;
+    depthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // To enable need to add stencil attachment
+
+    // Configure the color blending stage
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+
+    // Create color blending info
+    VkPipelineColorBlendStateCreateInfo colorBlending = {};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.blendConstants[0] = 0.0f;
+    colorBlending.blendConstants[1] = 0.0f;
+    colorBlending.blendConstants[2] = 0.0f;
+    colorBlending.blendConstants[3] = 0.0f;
+
+    // Create a pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+    pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutCreateInfo.setLayoutCount = 1;
+    pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
+
+    if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutCreateInfo, nullptr,
+                               &graphicsPipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create graphics pipeline layout!");
+    }
+
+    // Create the info for our graphics pipeline. We'll add a programmable vertex and fragment shader stage
+    VkGraphicsPipelineCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    createInfo.stageCount = 2;
+    createInfo.pStages = shaderStages;
+    createInfo.pVertexInputState = &vertexInputInfo;
+    createInfo.pInputAssemblyState = &inputAssemblyInfo;
+    createInfo.pViewportState = &viewPortCreateInfo;
+    createInfo.pRasterizationState = &rasterizerCreateInfo;
+    createInfo.pMultisampleState = &multisamplingCreateInfo;
+    createInfo.pDepthStencilState = &depthStencilStateCreateInfo;
+    createInfo.pColorBlendState = &colorBlending;
+    createInfo.pDynamicState = nullptr;
+    createInfo.layout = graphicsPipelineLayout;
+    createInfo.renderPass = renderPass;
+    createInfo.subpass = 0;
+    createInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+    if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr,
+                                  &graphicsPipeline) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create graphics pipeline!");
+    }
+
+    // Cleanup our shader modules after pipeline creation
+    vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
+    vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
+}
+
 
 void blitz::Renderer::createRenderPass() {
     // Configure a color attachment that will determine how the framebuffer is used
@@ -963,7 +1082,7 @@ void blitz::Renderer::drawFrame() {
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     std::array<VkCommandBuffer, 2> cmdBuffers = {commandBuffers[imageIndex], uiCommandBuffer};
     submitInfo.waitSemaphoreCount = 1;
@@ -1167,9 +1286,11 @@ void blitz::Renderer::initVulkan() {
     createMsaaResources();
     createDepthResources();
     createRenderPass();
+    createOffscreenRenderPass();
     createDescriptorSetLayout();
-    createGraphicsPipeline();
+    createPipelines();
     swapchain.initFramebuffers(renderPass, depthImage.getView(), msaaImage.getView());
+    createOffscreenFramebuffer();
     createTextureImage();
     createTextureSampler();
     createVertexBuffer();
@@ -1340,10 +1461,12 @@ void blitz::Renderer::recreateSwapchain() {
     // Recreate main application Vulkan resources
     createSwapchain();
     createRenderPass();
-    createGraphicsPipeline();
+    createOffscreenRenderPass();
+    createPipelines();
     createMsaaResources();
     createDepthResources();
     swapchain.initFramebuffers(renderPass, depthImage.getView(), msaaImage.getView());
+    createOffscreenFramebuffer();
     createDescriptorPool();
     createUniformBuffers();
     createDescriptorPool();
@@ -1446,7 +1569,6 @@ void blitz::Renderer::updateCameraBuffers(const size_t &bufferIdx) {
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         scene.camera.setModelMatrix(glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-        scene.camera.setNormalTransform(glm::transpose(glm::inverse(scene.camera.model)));
     }
     scene.camera.setViewMatrix(options.camPosition, options.camLookAt);
     scene.camera.setProjectionMatrix(glm::radians(options.yFov), options.aspectRatio, options.zNear, options.zFar);

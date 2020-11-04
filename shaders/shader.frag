@@ -5,7 +5,6 @@ layout(binding = 0) uniform Camera {
     mat4 model;
     mat4 view;
     mat4 projection;
-    mat4 normalTransform;
     vec3 position;
 } cam;
 

@@ -119,8 +119,6 @@ private:
 
     void createDescriptorSets();
 
-    void createGraphicsPipeline();
-
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                      VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
                      VkDeviceMemory &imageMemory);
@@ -132,6 +130,12 @@ private:
     void createLogicalDevice();
 
     void createMsaaResources();
+
+    void createOffscreenFramebuffer();
+
+    void createOffscreenRenderPass();
+
+    void createPipelines();
 
     void createRenderPass();
 
@@ -248,6 +252,12 @@ private:
     VkDescriptorPool descriptorPool = {};
     VkDescriptorSetLayout descriptorSetLayout = {};
     std::vector<VkDescriptorSet> descriptorSets = {};
+
+    Image normalImage;
+    VkRenderPass offscreenRenderPass;
+    VkFramebuffer offscreenFrameBuffer;
+
+    VkSampler colorSampler = {};
 
     Swapchain swapchain;
 
