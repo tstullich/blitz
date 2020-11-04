@@ -655,8 +655,8 @@ void blitz::Renderer::createOffscreenFramebuffer() {
 
 void blitz::Renderer::createPipelines() {
     // Load our shader modules in from disk
-    auto vertShaderCode = ShaderLoader::load("shaders/vert.spv");
-    auto fragShaderCode = ShaderLoader::load("shaders/frag.spv");
+    auto vertShaderCode = ShaderLoader::load("shaders/deferred-vert.spv");
+    auto fragShaderCode = ShaderLoader::load("shaders/deferred-frag.spv");
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

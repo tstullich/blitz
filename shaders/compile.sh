@@ -6,8 +6,8 @@ then
 else
   echo "Compiling shaders"
   # By GLSL convention we search for the following files that have the given extensions below
-  glslc shader.vert -o vert.spv
-  glslc shader.frag -o frag.spv
+  glslc offscreen.vert -o offscreen-vert.spv
+  glslc offscreen.frag -o offscreen-frag.spv
   glslc deferred.vert -o deferred-vert.spv
   glslc deferred.frag -o deferred-frag.spv
 fi

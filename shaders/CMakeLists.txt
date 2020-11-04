@@ -1,6 +1,8 @@
 # New shaders need to be specified here in order for CMake to pickup changes
-set(SHADERS shader.frag
-            shader.vert)
+set(SHADERS deferred.frag
+        deferred.vert
+        offscreen.vert
+        offscreen.frag)
 
 add_custom_target(
         CompileShaders ALL DEPENDS ${SHADERS}
