@@ -37,12 +37,12 @@ can then be executed to run the renderer.
 - [x] Depth stencil testing
 - [x] Multisampled anti-aliasing
 - [x] Blinn-Phong shading model
+- [x] Deferred shading
 
 ## Future Work 
 - [ ] UI improvements
 - [ ] GLTF scene loading
 - [ ] Physically-based lighting
-- [ ] Deferred shading
 
 ## Progress Screenshots
 ![An image of a model with diffuse shading and a single point light](https://i.imgur.com/FMQnDi1.png)
